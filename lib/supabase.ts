@@ -38,6 +38,7 @@ export interface Organization {
   default_tax_rate:      number
   default_payment_terms: string
   devis_color:           string
+  devis_footer?:         string
   plan:                  Plan
   plan_expires_at?:      string
   created_at:            string
