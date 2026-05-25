@@ -1,16 +1,17 @@
 // app/api/quotes/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
-import { cookies } from 'next/headers'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
+
+const createServerClient = () =>
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
 // ── GET — Liste des devis ──────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
+    const supabase = createServerClient()
     const { searchParams } = new URL(req.url)
     const orgId  = searchParams.get('org_id')
     const status = searchParams.get('status')
@@ -31,7 +32,6 @@ export async function GET(req: NextRequest) {
     if (error) throw error
 
     return NextResponse.json({ quotes: data })
-
   } catch (err) {
     console.error('[GET /api/quotes]', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -41,10 +41,7 @@ export async function GET(req: NextRequest) {
 // ── POST — Créer un devis ──────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerComponentClient({ cookies })
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
+    const supabase = createServerClient()
     const body = await req.json()
     const {
       organization_id, client_id, title, status = 'draft',
@@ -55,16 +52,13 @@ export async function POST(req: NextRequest) {
     if (!organization_id) return NextResponse.json({ error: 'organization_id requis' }, { status: 400 })
     if (!items.length)    return NextResponse.json({ error: 'Au moins une ligne requise' }, { status: 400 })
 
-    // Calcul des totaux
     const subtotal   = items.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0)
     const tax_amount = subtotal * (tax_rate / 100)
     const total      = subtotal + tax_amount - discount_amount
 
-    // Numéro de devis
     const now = new Date()
     const quote_number = `DEV-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}-${Math.floor(Math.random()*900)+100}`
 
-    // Insérer le devis
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .insert({
@@ -72,17 +66,8 @@ export async function POST(req: NextRequest) {
         client_id:       client_id || null,
         quote_number,
         title:           title || 'Nouveau devis',
-        status,
-        currency,
-        tax_rate,
-        discount_amount,
-        subtotal,
-        tax_amount,
-        total,
-        payment_terms,
-        validity_days,
-        notes,
-        created_by: user.id,
+        status, currency, tax_rate, discount_amount,
+        subtotal, tax_amount, total, payment_terms, validity_days, notes,
       })
       .select()
       .single()
@@ -90,14 +75,13 @@ export async function POST(req: NextRequest) {
     if (quoteError) {
       if (quoteError.message?.includes('QUOTE_LIMIT_REACHED')) {
         return NextResponse.json(
-          { error: 'QUOTA_EXCEEDED', message: 'Limite de 3 devis/mois atteinte. Passez en Premium.' },
+          { error: 'QUOTA_EXCEEDED', message: 'Limite de 3 devis/mois atteinte.' },
           { status: 403 }
         )
       }
       throw quoteError
     }
 
-    // Insérer les lignes
     if (items.length > 0) {
       await supabase.from('quote_items').insert(
         items.map((item: any, idx: number) => ({
@@ -113,7 +97,6 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ quote }, { status: 201 })
-
   } catch (err) {
     console.error('[POST /api/quotes]', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
