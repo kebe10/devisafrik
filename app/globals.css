@@ -1,26 +1,396 @@
-@import "tailwindcss";
+/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --orange:      #FF6B35;
+  --orange-dark: #E55A25;
+  --blue:        #1E3A5F;
+  --blue-light:  #2D5A8E;
+  --bg:          #F8F9FA;
+  --surface:     #FFFFFF;
+  --border:      #E5E7EB;
+  --text:        #1A1A2E;
+  --text-muted:  #6B7280;
+  --success:     #10B981;
+  --warning:     #F59E0B;
+  --danger:      #EF4444;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.10);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in  { animation: fadeIn  0.25s ease; }
+.slide-in { animation: slideIn 0.2s ease; }
+.spin     { animation: spin    0.7s linear infinite; }
+
+/* Inputs */
+input, textarea, select {
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--orange);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Boutons */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: filter 0.15s;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── OPTIMISATION MOBILE ─────────────────────────────────── */
+
+/* Empêcher le scroll horizontal global */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* ── Sidebar mobile ────────────────────────────────────────── */
+
+/* Sidebar cachée par défaut sur mobile */
+.sidebar-desktop {
+  display: flex;
+}
+
+/* Barre de navigation mobile en bas */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  /* Cacher la sidebar desktop */
+  .sidebar-desktop {
+    display: none !important;
+  }
+
+  /* Afficher la nav mobile en bas */
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--blue);
+    z-index: 100;
+    padding: 8px 0 12px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+  }
+
+  .mobile-nav a,
+  .mobile-nav button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: rgba(255,255,255,0.6);
+    font-size: 10px;
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 8px;
+    min-width: 56px;
+    font-family: inherit;
+  }
+
+  .mobile-nav .nav-icon {
+    font-size: 20px;
+  }
+
+  .mobile-nav .nav-active {
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+  }
+
+  /* Contenu principal avec padding pour la nav mobile */
+  .main-content {
+    padding-bottom: 80px !important;
+  }
+
+  /* ── Layout général ──────────────────────────────────────── */
+
+  /* Padding réduit sur mobile */
+  .page-content {
+    padding: 16px !important;
+  }
+
+  /* Grille 2 colonnes → 1 colonne */
+  .quote-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Récapitulatif non sticky sur mobile */
+  .recap-sticky {
+    position: relative !important;
+    top: auto !important;
+  }
+
+  /* ── Tableau des lignes de devis ─────────────────────────── */
+
+  /* Lignes de devis en cards sur mobile */
+  .quote-items-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .quote-item-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    background: #F8F9FA !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
+    border: 1px solid var(--border) !important;
+  }
+
+  .quote-item-row input,
+  .quote-item-row select {
+    width: 100% !important;
+  }
+
+  .quote-item-inline {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Header colonnes cachées sur mobile */
+  .quote-items-header {
+    display: none !important;
+  }
+
+  /* ── Inputs et boutons ───────────────────────────────────── */
+
+  input, textarea, select {
+    font-size: 16px !important; /* évite le zoom auto sur iOS */
+    padding: 12px 14px !important;
+    min-height: 48px !important; /* zone de tap suffisante */
+  }
+
+  button {
+    min-height: 44px !important; /* zone de tap minimum recommandée */
+  }
+
+  /* ── Textes ──────────────────────────────────────────────── */
+
+  h1 { font-size: 18px !important; }
+  h2 { font-size: 16px !important; }
+
+  /* ── Cards et espacement ─────────────────────────────────── */
+
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Header des pages ────────────────────────────────────── */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .header-actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  .header-actions button {
+    flex: 1 !important;
+    min-width: 120px !important;
+    justify-content: center !important;
+  }
+
+  /* ── Landing page ────────────────────────────────────────── */
+  .landing-hero {
+    padding: 48px 16px !important;
+  }
+
+  .landing-hero h1 {
+    font-size: 28px !important;
+  }
+
+  .landing-cta {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+
+  .landing-cta button {
+    width: 100% !important;
+  }
+
+  /* ── Auth pages ──────────────────────────────────────────── */
+  .auth-card {
+    padding: 20px 16px !important;
+    margin: 0 !important;
+  }
+
+  /* ── Filtres recherche ───────────────────────────────────── */
+  .filters-row {
+    flex-direction: column !important;
+  }
+
+  .filters-row select {
+    width: 100% !important;
+  }
+
+  /* ── Stats dashboard ─────────────────────────────────────── */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Modal ───────────────────────────────────────────────── */
+  .modal-box {
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* ── Tableau des clients ─────────────────────────────────── */
+  .client-actions {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── Tablette (768px - 1024px) ───────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+
+  .sidebar-desktop {
+    width: 180px !important;
+  }
+
+  .quote-grid {
+    grid-template-columns: 1fr 260px !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── Très petits écrans (< 380px) — Android bas de gamme ─── */
+@media (max-width: 380px) {
+
+  html, body {
+    font-size: 13px !important;
+  }
+
+  .card-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  input, textarea, select {
+    font-size: 15px !important;
+  }
+}
+/* ── Cacher les éléments mobile sur desktop ─────────────── */
+.mobile-header {
+  display: none !important;
+}
+
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+.mobile-overlay {
+  display: none !important;
+}
+
+/* ── Afficher uniquement sur mobile ─────────────────────── */
+@media (max-width: 768px) {
+
+  .mobile-header {
+    display: flex !important;
+  }
+
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  .mobile-overlay {
+    display: block !important;
+  }
+
+  .sidebar-desktop {
+    display: none !important;
+  }
+
+  /* Décaler le contenu sous le header mobile */
+  .app-content {
+    padding-top: 56px !important;
+    padding-bottom: 80px !important;
+  }
 }
