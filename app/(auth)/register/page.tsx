@@ -16,11 +16,11 @@ export default function RegisterPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const [success, setSuccess] = useState(false)
 
   const handleRegister = async () => {
     setError('')
 
-    // Validation
     if (!form.name || !form.email || !form.password) {
       setError('Veuillez remplir les champs obligatoires.')
       return
@@ -37,7 +37,6 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      // Appel API register
       const res = await fetch('/api/auth/register', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,18 +58,76 @@ export default function RegisterPage() {
       }
 
       // Connexion automatique après inscription
-      
-      await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email:    form.email,
         password: form.password,
       })
 
+      if (signInError) {
+        // Si la connexion échoue (ex: email non confirmé), afficher message
+        setSuccess(true)
+        setLoading(false)
+        return
+      }
+
+      // Connexion réussie → rediriger vers dashboard
       router.push('/dashboard')
 
     } catch (err) {
       setError('Erreur réseau. Vérifiez votre connexion.')
       setLoading(false)
     }
+  }
+
+  // ── Page de succès ─────────────────────────────────────────
+  if (success) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: 'var(--bg)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}>
+        <div style={{ width: '100%', maxWidth: 460, textAlign: 'center' }}>
+          <div style={{
+            background: '#fff', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', padding: 36,
+            boxShadow: 'var(--shadow-sm)',
+          }}>
+            <div style={{ fontSize: 64, marginBottom: 16 }}>📧</div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--blue)', marginBottom: 12 }}>
+              Vérifiez votre email !
+            </h1>
+            <p style={{ fontSize: 15, color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 20 }}>
+              Un lien de confirmation a été envoyé à<br />
+              <strong style={{ color: 'var(--text)' }}>{form.email}</strong>
+            </p>
+            <div style={{
+              background: '#ECFDF5', border: '1px solid #6EE7B7',
+              borderRadius: 10, padding: '14px 16px',
+              fontSize: 13, color: '#065F46', marginBottom: 24, textAlign: 'left', lineHeight: 1.7,
+            }}>
+              <strong>Comment activer votre compte :</strong><br />
+              1. Ouvrez votre boîte email<br />
+              2. Cherchez un email de <strong>DevisAfrik</strong><br />
+              3. Cliquez sur <strong>"Confirmer mon email"</strong><br />
+              4. Vous serez automatiquement redirigé vers votre tableau de bord
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
+              Vous n'avez pas reçu l'email ? Vérifiez vos spams.
+            </p>
+            <button
+              onClick={() => router.push('/login')}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 10,
+                fontSize: 14, fontWeight: 700,
+                background: 'var(--orange)', color: '#fff', cursor: 'pointer',
+              }}
+            >
+              Aller à la page de connexion
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -209,7 +266,7 @@ export default function RegisterPage() {
 
           {/* CGU */}
           <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
-            En créant un compte, vous acceptez nos conditions d'utilisation et notre politique de confidentialité.
+            En créant un compte, vous acceptez nos conditions d'utilisation.
           </p>
 
           {/* Lien connexion */}
@@ -233,7 +290,6 @@ export default function RegisterPage() {
             ← Retour à l'accueil
           </span>
         </div>
-
       </div>
     </div>
   )
