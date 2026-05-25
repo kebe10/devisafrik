@@ -2,7 +2,7 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
-import MobileNav from '../components/MobileNav'
+
 
 const font = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${font.variable} font-sans antialiased`}>
         {children}
-        <MobileNav />
+        
       </body>
     </html>
   )
