@@ -105,7 +105,13 @@ export default function NewQuotePage() {
       }
       if (!res.ok) { alert(data.error || 'Erreur. Réessayez.'); setAiLoading(false); return }
       if (data.title) setTitle(data.title)
-      if (data.items) setItems(data.items.map((it: any, idx: number) => ({ ...it, id: Date.now() + idx })))
+      if (data.items) setItems(data.items.map((it: any, idx: number) => ({
+        id: Date.now() + idx,
+        description: String(it.description || ''),
+        quantity:    Number(it.quantity) || 1,
+        unit:        String(it.unit || 'forfait'),
+        unit_price:  Number(it.unit_price) || 0,
+      })))
       if (data.notes) setNotes(data.notes)
       setAiText('')
     } catch {
@@ -180,9 +186,7 @@ export default function NewQuotePage() {
       })
       setPdfReady(true)
       await saveQuote(false)
-    } catch (err) {
-      alert('Erreur lors de la génération du PDF.')
-    }
+    } catch { alert('Erreur lors de la génération du PDF.') }
   }
 
   const shareWhatsApp = async () => {
@@ -205,7 +209,8 @@ export default function NewQuotePage() {
 
   return (
     <AppLayout org={org}>
-      <div style={{ padding: '16px 16px 100px' }}>
+      {/* ✅ overflowX hidden pour empêcher le décalage horizontal sur mobile */}
+      <div style={{ padding: '16px 16px 100px', overflowX: 'hidden', width: '100%', boxSizing: 'border-box' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
@@ -236,11 +241,10 @@ export default function NewQuotePage() {
           </div>
         </div>
 
-        {/* Layout : 1 colonne sur mobile, 2 colonnes sur desktop */}
         <div className="quote-new-grid">
 
           {/* Colonne gauche */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
             {/* IA */}
             <div style={{ background: '#FFF9F6', border: '1.5px solid var(--orange)', borderRadius: 14, padding: 16 }}>
@@ -248,9 +252,10 @@ export default function NewQuotePage() {
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>Décrivez votre travail, l'IA crée votre devis.</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input value={aiText} onChange={e => setAiText(e.target.value)} onKeyDown={e => e.key === 'Enter' && generateAI()}
-                  placeholder='Ex: "Installation 3 prises + câblage salon"' />
+                  placeholder='Ex: "Installation 3 prises + câblage salon"'
+                  style={{ minWidth: 0, flex: 1 }} />
                 <button onClick={generateAI} disabled={aiLoading}
-                  style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {aiLoading ? '⏳' : '✨ IA'}
                 </button>
               </div>
@@ -313,11 +318,11 @@ export default function NewQuotePage() {
               )}
             </div>
 
-            {/* Lignes de devis — cards sur mobile */}
+            {/* Lignes de devis */}
             <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Prestations / Produits</div>
 
-              {/* En-tête colonnes — caché sur mobile via CSS */}
+              {/* En-tête desktop */}
               <div className="items-header" style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 6 }}>
                 {['Description', 'Qté', 'Unité', 'Prix unit.', ''].map(h => (
                   <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{h}</div>
@@ -343,7 +348,7 @@ export default function NewQuotePage() {
               {/* Lignes mobile — cards */}
               <div className="items-mobile">
                 {items.map((item, idx) => (
-                  <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)' }}>
+                  <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)', boxSizing: 'border-box' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>Ligne {idx + 1}</span>
                       <button onClick={() => removeItem(item.id)}
@@ -351,22 +356,22 @@ export default function NewQuotePage() {
                     </div>
                     <div style={{ marginBottom: 8 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Description</label>
-                      <input placeholder="Description..." value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
+                      <input placeholder="Description..." value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Quantité</label>
-                        <input type="number" min="0" step="0.5" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'center' }} />
+                        <input type="number" min="0" step="0.5" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
                       </div>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Unité</label>
-                        <select value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
+                        <select value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)} style={{ width: '100%', boxSizing: 'border-box' }}>
                           {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                       </div>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Prix unit.</label>
-                        <input type="number" min="0" step="500" value={item.unit_price} onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
+                        <input type="number" min="0" step="500" value={item.unit_price} onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right', width: '100%', boxSizing: 'border-box' }} />
                       </div>
                     </div>
                     {item.description && (
@@ -379,7 +384,7 @@ export default function NewQuotePage() {
               </div>
 
               <button onClick={addItem}
-                style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer', marginTop: 6, width: '100%' }}>
+                style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer', marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                 ➕ Ajouter une ligne
               </button>
             </div>
@@ -398,28 +403,30 @@ export default function NewQuotePage() {
           </div>
 
           {/* Colonne droite — Récapitulatif */}
-          <div className="recap-col">
-            <div style={{ background: '#fff', border: '2px solid var(--blue)', borderRadius: 16, padding: 18 }}>
+          <div className="recap-col" style={{ minWidth: 0 }}>
+            <div style={{ background: '#fff', border: '2px solid var(--blue)', borderRadius: 16, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--blue)', marginBottom: 14 }}>Récapitulatif</div>
               <div style={{ fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Sous-total HT</span>
-                  <span style={{ fontWeight: 600 }}>{formatAmount(subtotal, currency)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
+                  <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Sous-total HT</span>
+                  <span style={{ fontWeight: 600, textAlign: 'right', wordBreak: 'break-all' }}>{formatAmount(subtotal, currency)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>TVA (%)</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="number" min="0" max="30" value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} style={{ width: 50, padding: '4px 6px', fontSize: 12, textAlign: 'center' }} />
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{formatAmount(taxAmount, currency)}</span>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>TVA (%)</span>
+                    <input type="number" min="0" max="30" value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} style={{ width: 52, padding: '4px 6px', fontSize: 12, textAlign: 'center' }} />
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {formatAmount(taxAmount, currency)}
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Remise</span>
-                  <input type="number" min="0" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} style={{ width: 90, padding: '4px 8px', fontSize: 12, textAlign: 'right' }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
+                  <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Remise</span>
+                  <input type="number" min="0" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} style={{ width: 80, padding: '4px 8px', fontSize: 12, textAlign: 'right' }} />
                 </div>
                 <div style={{ background: 'var(--blue)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
                   <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 4 }}>TOTAL TTC</div>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 22 }}>{formatAmount(total, currency)}</div>
+                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 20, wordBreak: 'break-all' }}>{formatAmount(total, currency)}</div>
                 </div>
               </div>
 
@@ -452,9 +459,9 @@ export default function NewQuotePage() {
               <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 14, marginTop: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8 }}>Détail lignes</div>
                 {items.filter(i => i.description).map(i => (
-                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 8 }}>{i.description}</span>
-                    <span style={{ fontWeight: 600 }}>{formatAmount(i.quantity * i.unit_price, currency)}</span>
+                  <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5, gap: 8 }}>
+                    <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{i.description}</span>
+                    <span style={{ fontWeight: 600, flexShrink: 0 }}>{formatAmount(i.quantity * i.unit_price, currency)}</span>
                   </div>
                 ))}
               </div>
@@ -463,13 +470,13 @@ export default function NewQuotePage() {
         </div>
       </div>
 
-      {/* CSS responsive */}
       <style>{`
         .quote-new-grid {
           display: grid;
           grid-template-columns: 1fr 300px;
           gap: 16px;
           align-items: start;
+          width: 100%;
         }
         .items-mobile { display: none; }
         .items-desktop { display: block; }
@@ -488,6 +495,20 @@ export default function NewQuotePage() {
           .items-mobile { display: block !important; }
           .items-desktop { display: none !important; }
           .items-header { display: none !important; }
+
+          /* ✅ Empêcher tout débordement horizontal après génération IA */
+          .quote-new-grid,
+          .quote-new-grid * {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .items-mobile input,
+          .items-mobile select,
+          .items-mobile textarea {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
         }
       `}</style>
     </AppLayout>
