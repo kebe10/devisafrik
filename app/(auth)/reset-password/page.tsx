@@ -1,15 +1,11 @@
-// app/(auth)/reset-password/page.tsx
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-function ResetPasswordForm() {
+export default function ResetPasswordPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const code = searchParams.get('code')
-
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
   const [loading, setLoading]   = useState(false)
@@ -18,34 +14,42 @@ function ResetPasswordForm() {
   const [ready, setReady]       = useState(false)
 
   useEffect(() => {
-    const init = async () => {
-      if (code) {
-        await supabase.auth.exchangeCodeForSession(code)
+    // Supabase met le token dans le hash de l'URL automatiquement
+    // On laisse le SDK le gérer via onAuthStateChange
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setReady(true)
       }
-      setReady(true)
-    }
-    init()
-  }, [code])
+    })
+    // Fallback si déjà connecté avec session recovery
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleReset = async () => {
     setError('')
-    if (!password || !confirm) { setError('Veuillez remplir tous les champs.'); return }
-    if (password.length < 6)   { setError('Le mot de passe doit contenir au moins 6 caractères.'); return }
-    if (password !== confirm)  { setError('Les mots de passe ne correspondent pas.'); return }
+    if (!password || !confirm)  { setError('Veuillez remplir tous les champs.'); return }
+    if (password.length < 6)    { setError('Minimum 6 caractères.'); return }
+    if (password !== confirm)   { setError('Les mots de passe ne correspondent pas.'); return }
 
     setLoading(true)
     const { error: updateError } = await supabase.auth.updateUser({ password })
     setLoading(false)
 
-    if (updateError) { setError('Erreur lors de la mise à jour. Réessayez.'); return }
+    if (updateError) { setError('Erreur. Réessayez.'); return }
     setSuccess(true)
     setTimeout(() => router.push('/dashboard'), 2000)
   }
 
   if (!ready) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Vérification en cours...</div>
+        </div>
       </div>
     )
   }
@@ -53,7 +57,6 @@ function ResetPasswordForm() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
-
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, background: 'var(--orange)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, marginBottom: 12 }}>D</div>
           <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--blue)' }}>DevisAfrik</div>
@@ -64,7 +67,7 @@ function ResetPasswordForm() {
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 52, marginBottom: 14 }}>🎉</div>
               <div style={{ fontWeight: 700, fontSize: 18, color: '#059669', marginBottom: 10 }}>Mot de passe mis à jour !</div>
-              <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Redirection vers votre tableau de bord...</div>
+              <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>Redirection en cours...</div>
             </div>
           ) : (
             <>
@@ -76,7 +79,7 @@ function ResetPasswordForm() {
                 <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
               </div>
               <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Confirmer le mot de passe *</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Confirmer *</label>
                 <input type="password" placeholder="••••••••" value={confirm} onChange={e => setConfirm(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleReset()} />
               </div>
 
@@ -87,27 +90,13 @@ function ResetPasswordForm() {
               )}
 
               <button onClick={handleReset} disabled={loading}
-                style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 15, fontWeight: 700, background: loading ? '#ccc' : 'var(--orange)', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {loading ? (
-                  <><div style={{ width: 18, height: 18, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Mise à jour...</>
-                ) : '✅ Mettre à jour le mot de passe'}
+                style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 15, fontWeight: 700, background: loading ? '#ccc' : 'var(--orange)', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer' }}>
+                {loading ? '⏳ Mise à jour...' : '✅ Mettre à jour le mot de passe'}
               </button>
             </>
           )}
         </div>
       </div>
     </div>
-  )
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-      </div>
-    }>
-      <ResetPasswordForm />
-    </Suspense>
   )
 }
