@@ -1,24 +1,23 @@
-// app/auth/reset-password/page.tsx
+// app/(auth)/reset-password/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const code = searchParams.get('code')
 
-  const [password, setPassword]   = useState('')
-  const [confirm, setConfirm]     = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [success, setSuccess]     = useState(false)
-  const [ready, setReady]         = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [success, setSuccess]   = useState(false)
+  const [ready, setReady]       = useState(false)
 
   useEffect(() => {
-    // Échanger le code pour une session
     const init = async () => {
       if (code) {
         await supabase.auth.exchangeCodeForSession(code)
@@ -31,8 +30,8 @@ export default function ResetPasswordPage() {
   const handleReset = async () => {
     setError('')
     if (!password || !confirm) { setError('Veuillez remplir tous les champs.'); return }
-    if (password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caractères.'); return }
-    if (password !== confirm) { setError('Les mots de passe ne correspondent pas.'); return }
+    if (password.length < 6)   { setError('Le mot de passe doit contenir au moins 6 caractères.'); return }
+    if (password !== confirm)  { setError('Les mots de passe ne correspondent pas.'); return }
 
     setLoading(true)
     const { error: updateError } = await supabase.auth.updateUser({ password })
@@ -54,6 +53,7 @@ export default function ResetPasswordPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
+
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{ width: 52, height: 52, background: 'var(--orange)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, marginBottom: 12 }}>D</div>
           <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--blue)' }}>DevisAfrik</div>
@@ -87,13 +87,27 @@ export default function ResetPasswordPage() {
               )}
 
               <button onClick={handleReset} disabled={loading}
-                style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 15, fontWeight: 700, background: loading ? '#ccc' : 'var(--orange)', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer' }}>
-                {loading ? '⏳ Mise à jour...' : '✅ Mettre à jour le mot de passe'}
+                style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 15, fontWeight: 700, background: loading ? '#ccc' : 'var(--orange)', color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {loading ? (
+                  <><div style={{ width: 18, height: 18, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Mise à jour...</>
+                ) : '✅ Mettre à jour le mot de passe'}
               </button>
             </>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
