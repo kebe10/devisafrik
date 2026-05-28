@@ -1,9 +1,16 @@
 // app/(auth)/login/page.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+
+// Lire l'erreur depuis l'URL si présente
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const urlError = params.get('error')
+  if (urlError) setError(urlError)
+}, [])
 
 export default function LoginPage() {
   const router = useRouter()
