@@ -5,13 +5,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-// Lire l'erreur depuis l'URL si présente
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search)
-  const urlError = params.get('error')
-  if (urlError) setError(urlError)
-}, [])
-
 export default function LoginPage() {
   const router = useRouter()
   const [form, setForm] = useState({ email: '', password: '' })
@@ -21,6 +14,13 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail]     = useState('')
   const [resetSent, setResetSent]       = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
+
+  // ✅ useEffect DANS le composant
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlError = params.get('error')
+    if (urlError) setError(decodeURIComponent(urlError))
+  }, [])
 
   const handleLogin = async () => {
     setError('')
@@ -140,6 +140,13 @@ export default function LoginPage() {
 
         <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--shadow-sm)' }}>
 
+          {/* Message d'erreur depuis l'URL (ex: lien expiré) */}
+          {error && !form.email && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '12px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+              ⚠️ {error}
+            </div>
+          )}
+
           <div style={{ marginBottom: 16 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Adresse email *</label>
             <input type="email" placeholder="votre@email.com" value={form.email}
@@ -154,16 +161,14 @@ export default function LoginPage() {
               onKeyDown={e => e.key === 'Enter' && handleLogin()} />
           </div>
 
-          {/* ✅ Mot de passe oublié avec onClick */}
           <div style={{ textAlign: 'right', marginBottom: 20 }}>
-            <span
-              onClick={() => { setResetMode(true); setError(''); setResetEmail(form.email) }}
+            <span onClick={() => { setResetMode(true); setError(''); setResetEmail(form.email) }}
               style={{ fontSize: 13, color: 'var(--orange)', cursor: 'pointer', fontWeight: 600 }}>
               Mot de passe oublié ?
             </span>
           </div>
 
-          {error && (
+          {error && form.email && (
             <div style={{ background: '#FEF2F2', color: '#DC2626', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
               ⚠️ {error}
             </div>
