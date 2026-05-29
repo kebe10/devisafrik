@@ -9,46 +9,42 @@ export default function AuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Le hash contient le token : #access_token=...&type=recovery
     const hash = window.location.hash
-    const params = new URLSearchParams(hash.replace('#', ''))
-    const type = params.get('type') || new URLSearchParams(window.location.search).get('type')
+    const hashParams = new URLSearchParams(hash.replace('#', ''))
+    const searchParams = new URLSearchParams(window.location.search)
 
-    // Supabase détecte automatiquement le token dans le hash
-    // et crée la session via onAuthStateChange
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        router.replace('/auth/reset-password')
-      } else if (event === 'SIGNED_IN' && type !== 'recovery') {
-        router.replace('/dashboard')
-      }
-    })
+    const accessToken  = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+    const type         = hashParams.get('type') || searchParams.get('type')
+    const errorCode    = hashParams.get('error_code')
 
-    // Fallback : si pas d'événement après 3s, lire le hash manuellement
-    const timeout = setTimeout(async () => {
-      const accessToken  = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
+    // Lien expiré ou invalide
+    if (errorCode) {
+      router.replace('/login?error=Lien+invalide+ou+expiré.+Veuillez+faire+une+nouvelle+demande.')
+      return
+    }
 
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
-          access_token:  accessToken,
-          refresh_token: refreshToken,
-        })
+    // Token présent dans le hash → créer la session
+    if (accessToken && refreshToken) {
+      supabase.auth.setSession({
+        access_token:  accessToken,
+        refresh_token: refreshToken,
+      }).then(({ error }) => {
+        if (error) {
+          router.replace('/login?error=Erreur+d+authentification.+Réessayez.')
+          return
+        }
         if (type === 'recovery') {
           router.replace('/auth/reset-password')
         } else {
           router.replace('/dashboard')
         }
-      } else {
-        // Pas de token → rediriger vers login avec erreur
-        router.replace('/login?error=Lien+invalide+ou+expiré')
-      }
-    }, 1500)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
+      })
+      return
     }
+
+    // Pas de token du tout
+    router.replace('/login?error=Lien+invalide+ou+expiré.+Veuillez+faire+une+nouvelle+demande.')
   }, [router])
 
   return (
