@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
     }
 
-    // Étape 1 — Créer la transaction
     const txRes = await fetch('https://sandbox-api.fedapay.com/v1/transactions', {
       method: 'POST',
       headers: {
@@ -32,42 +31,26 @@ export async function POST(req: NextRequest) {
     })
 
     const txData = await txRes.json()
-    console.log('FedaPay transaction response:', JSON.stringify(txData))
 
-    // La réponse peut être dans txData ou txData.v1_transaction
-    const transaction = txData?.v1_transaction || txData?.transaction || txData
-    const transactionId = transaction?.id
+    // ✅ La clé est 'v1/transaction' avec un slash
+    const transaction = txData['v1/transaction']
 
-    if (!transactionId) {
-      console.error('No transaction ID in response:', txData)
-      return NextResponse.json({ error: 'Erreur création transaction FedaPay' }, { status: 500 })
+    if (!transaction?.id) {
+      console.error('FedaPay error:', JSON.stringify(txData))
+      return NextResponse.json({ error: 'Erreur création transaction' }, { status: 500 })
     }
 
-    // Étape 2 — Générer le token de paiement
-    const tokenRes = await fetch(
-      `https://sandbox-api.fedapay.com/v1/transactions/${transactionId}/token`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
-        },
-      }
-    )
+    // ✅ payment_url est directement dans la réponse
+    const payment_url = transaction.payment_url
 
-    const tokenData = await tokenRes.json()
-    console.log('FedaPay token response:', JSON.stringify(tokenData))
-
-    const token = tokenData?.token || tokenData?.v1_transaction_token?.token
-
-    if (!token) {
-      console.error('No token in response:', tokenData)
-      return NextResponse.json({ error: 'Erreur génération token FedaPay' }, { status: 500 })
+    if (!payment_url) {
+      return NextResponse.json({ error: 'URL de paiement manquante' }, { status: 500 })
     }
 
-    const payment_url = `https://sandbox-checkout.fedapay.com/payment-page?token=${token}`
-
-    return NextResponse.json({ transaction_id: transactionId, payment_url })
+    return NextResponse.json({
+      transaction_id: transaction.id,
+      payment_url,
+    })
 
   } catch (err) {
     console.error('Payment error:', err)
