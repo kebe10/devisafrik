@@ -1,12 +1,11 @@
 // app/subscription/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, formatAmount } from '@/lib/supabase'
 import type { Organization } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
-import { Suspense } from 'react'
 
 const PLANS = {
   month: { price: 9500,  label: '/mois' },
@@ -43,31 +42,62 @@ const FAQS = [
 ]
 
 function SubscriptionContent() {
-  const router   = useRouter()
+  const router       = useRouter()
   const searchParams = useSearchParams()
-  const [org, setOrg]         = useState<Organization | null>(null)
-  const [orgId, setOrgId]     = useState('')
+  const [org, setOrg]             = useState<Organization | null>(null)
+  const [orgId, setOrgId]         = useState('')
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName]   = useState('')
-  const [loading, setLoading] = useState(true)
-  const [period, setPeriod]   = useState<'month' | 'year'>('month')
-  const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const [paying, setPaying]   = useState(false)
+  const [loading, setLoading]     = useState(true)
+  const [period, setPeriod]       = useState<'month' | 'year'>('month')
+  const [openFaq, setOpenFaq]     = useState<number | null>(null)
+  const [paying, setPaying]       = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
   useEffect(() => {
-    loadData()
+    const status  = searchParams.get('status')
+    const oid     = searchParams.get('org_id')
+    const per     = searchParams.get('period') as 'month' | 'year' | null
 
-    // Vérifier si retour de paiement
-    const status = searchParams.get('status')
-    if (status === 'success') {
-      setSuccessMsg('🎉 Paiement réussi ! Votre plan Premium est en cours d\'activation...')
-      // Recharger les données après 2s
-      setTimeout(() => loadData(), 2000)
+    if (status === 'success' && oid) {
+      // ✅ Activer le plan Premium directement après retour paiement
+      activatePremium(oid, per || 'month')
     } else if (status === 'cancelled') {
-      setSuccessMsg('')
+      setSuccessMsg('❌ Paiement annulé. Vous pouvez réessayer.')
     }
+
+    loadData()
   }, [])
+
+  const activatePremium = async (oid: string, per: string) => {
+    setSuccessMsg('⏳ Activation de votre plan Premium en cours...')
+
+    const now = new Date()
+    const expiresAt = new Date(now)
+    if (per === 'year') {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
+    } else {
+      expiresAt.setMonth(expiresAt.getMonth() + 1)
+    }
+
+    const { error } = await supabase
+      .from('organizations')
+      .update({
+        plan:             'premium',
+        plan_expires_at:  expiresAt.toISOString(),
+        last_payment_at:  now.toISOString(),
+      })
+      .eq('id', oid)
+
+    if (error) {
+      console.error('Erreur activation premium:', error)
+      setSuccessMsg('⚠️ Paiement reçu mais erreur activation. Contactez le support.')
+    } else {
+      setSuccessMsg('🎉 Plan Premium activé ! Devis illimités, IA avancée — tout est débloqué.')
+      // Recharger les données pour afficher le nouveau plan
+      await loadData()
+    }
+  }
 
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -122,10 +152,9 @@ function SubscriptionContent() {
         return
       }
 
-      // Rediriger vers la page de paiement FedaPay
       window.location.href = data.payment_url
 
-    } catch (err) {
+    } catch {
       alert('Erreur réseau. Réessayez.')
       setPaying(false)
     }
@@ -152,9 +181,15 @@ function SubscriptionContent() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>{org?.name}</p>
         </div>
 
-        {/* Message succès paiement */}
+        {/* Message succès / erreur */}
         {successMsg && (
-          <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: 12, padding: '16px 18px', marginBottom: 20, fontSize: 14, color: '#065F46', fontWeight: 600 }}>
+          <div style={{
+            background: successMsg.startsWith('🎉') ? '#ECFDF5' : successMsg.startsWith('❌') ? '#FEF2F2' : '#FFF9F6',
+            border: `1.5px solid ${successMsg.startsWith('🎉') ? '#10B981' : successMsg.startsWith('❌') ? '#DC2626' : 'var(--orange)'}`,
+            borderRadius: 12, padding: '16px 18px', marginBottom: 20,
+            fontSize: 14, fontWeight: 600,
+            color: successMsg.startsWith('🎉') ? '#065F46' : successMsg.startsWith('❌') ? '#DC2626' : 'var(--orange)',
+          }}>
             {successMsg}
           </div>
         )}
@@ -225,7 +260,6 @@ function SubscriptionContent() {
               ) : org?.plan === 'premium' ? '✅ Plan actuel' : `Passer Premium → ${formatAmount(period === 'year' ? 7600 * 12 : 9500, 'XOF')}`}
             </button>
 
-            {/* Méthodes de paiement acceptées */}
             <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 11, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
               💙 Wave CI &nbsp;·&nbsp; 🟠 Orange Money &nbsp;·&nbsp; 🟡 MTN MoMo &nbsp;·&nbsp; 💳 Carte bancaire
             </div>
@@ -242,7 +276,7 @@ function SubscriptionContent() {
 
         {/* Sécurité */}
         <div style={{ background: '#F0F7FF', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          🔒 Paiements sécurisés via <strong>FedaPay</strong> — plateforme certifiée pour l'Afrique de l'Ouest. Aucune carte internationale requise.
+          🔒 Paiements sécurisés via <strong>FedaPay</strong> — plateforme certifiée pour l'Afrique de l'Ouest.
         </div>
 
         {/* FAQ */}
@@ -266,7 +300,7 @@ function SubscriptionContent() {
         <div style={{ background: 'linear-gradient(135deg, var(--orange) 0%, #FF8C5A 100%)', borderRadius: 18, padding: '24px 22px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
           <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 17, marginBottom: 7 }}>Satisfait ou remboursé 7 jours</h3>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 18 }}>Essayez Premium sans risque. Remboursement intégral si vous n'êtes pas satisfait.</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 18 }}>Essayez Premium sans risque.</p>
           <button onClick={handlePay} disabled={paying || org?.plan === 'premium'}
             style={{ background: '#fff', color: 'var(--orange)', fontWeight: 800, fontSize: 14, padding: '12px 26px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             {org?.plan === 'premium' ? '✅ Déjà Premium' : 'Essayer Premium maintenant →'}

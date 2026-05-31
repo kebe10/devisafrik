@@ -19,8 +19,11 @@ export async function POST(req: NextRequest) {
         description:  `DevisAfrik Premium - ${period === 'year' ? 'Annuel' : 'Mensuel'}`,
         amount,
         currency:     { iso: 'XOF' },
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback`,
-        return_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=success&org_id=${org_id}`,
+        // ✅ callback_url = webhook pour mise à jour du plan (serveur → serveur)
+        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
+        // ✅ return_url = redirection utilisateur après paiement réussi
+        return_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=success&org_id=${org_id}&period=${period}`,
+        // ✅ cancel_url = redirection si annulation
         cancel_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=cancelled`,
         customer: {
           email,
@@ -31,8 +34,6 @@ export async function POST(req: NextRequest) {
     })
 
     const txData = await txRes.json()
-
-    // ✅ La clé est 'v1/transaction' avec un slash
     const transaction = txData['v1/transaction']
 
     if (!transaction?.id) {
@@ -40,16 +41,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erreur création transaction' }, { status: 500 })
     }
 
-    // ✅ payment_url est directement dans la réponse
-    const payment_url = transaction.payment_url
-
-    if (!payment_url) {
-      return NextResponse.json({ error: 'URL de paiement manquante' }, { status: 500 })
-    }
-
     return NextResponse.json({
       transaction_id: transaction.id,
-      payment_url,
+      payment_url:    transaction.payment_url,
     })
 
   } catch (err) {

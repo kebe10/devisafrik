@@ -1,4 +1,4 @@
-// app/api/payment/callback/route.ts
+// app/api/payment/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -7,24 +7,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     console.log('FedaPay webhook:', JSON.stringify(body))
 
-    const event = body.name
+    const event       = body.name
     const transaction = body.entity
 
-    // Paiement approuvé
     if (event === 'transaction.approved') {
       const org_id = transaction.metadata?.org_id
       const period = transaction.metadata?.period
 
-      if (!org_id) {
-        return NextResponse.json({ error: 'org_id manquant' }, { status: 400 })
-      }
+      if (!org_id) return NextResponse.json({ error: 'org_id manquant' }, { status: 400 })
 
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      // Calculer la date d'expiration
       const now = new Date()
       const expiresAt = new Date(now)
       if (period === 'year') {
@@ -33,34 +29,26 @@ export async function POST(req: NextRequest) {
         expiresAt.setMonth(expiresAt.getMonth() + 1)
       }
 
-      // Mettre à jour le plan de l'organisation
-      const { error } = await supabase
+      await supabase
         .from('organizations')
         .update({
-          plan:               'premium',
-          plan_expires_at:    expiresAt.toISOString(),
-          last_payment_at:    now.toISOString(),
+          plan:                'premium',
+          plan_expires_at:     expiresAt.toISOString(),
+          last_payment_at:     now.toISOString(),
           last_payment_amount: transaction.amount,
         })
         .eq('id', org_id)
 
-      if (error) {
-        console.error('Supabase update error:', error)
-        return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
-      }
-
-      console.log(`✅ Plan Premium activé pour org ${org_id} jusqu'au ${expiresAt}`)
+      console.log(`✅ Premium activé pour org ${org_id}`)
     }
 
     return NextResponse.json({ received: true })
-
   } catch (err) {
     console.error('Webhook error:', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// FedaPay envoie aussi des GET pour vérifier l'endpoint
 export async function GET() {
   return NextResponse.json({ status: 'ok' })
 }
