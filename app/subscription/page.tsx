@@ -2,14 +2,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, formatAmount } from '@/lib/supabase'
 import type { Organization } from '@/lib/supabase'
-import AppLayout from '../../components/AppLayout'
+import AppLayout from '@/components/AppLayout'
+import { Suspense } from 'react'
 
 const PLANS = {
-  month: { price: 9500, label: '/mois' },
-  year:  { price: 7600, label: '/mois (annuel)' },
+  month: { price: 9500,  label: '/mois' },
+  year:  { price: 7600,  label: '/mois (annuel)' },
 }
 
 const FEATURES_FREE = [
@@ -34,33 +35,46 @@ const FEATURES_PREMIUM = [
   'Support prioritaire WhatsApp',
 ]
 
-const METHODS = [
-  { id: 'wave',     label: 'Wave CI',      emoji: '💙', color: '#1B8EF2', note: 'Recommandé · Instantané' },
-  { id: 'orange',   label: 'Orange Money', emoji: '🟠', color: '#FF7900', note: 'Disponible partout' },
-  { id: 'mtn',      label: 'MTN MoMo',     emoji: '🟡', color: '#FFCC00', note: 'CI · Cameroun' },
-  { id: 'cinetpay', label: 'CinetPay',     emoji: '🔵', color: '#0066CC', note: 'Multi-pays FCFA' },
-]
-
 const FAQS = [
   ['Puis-je annuler à tout moment ?', "Oui, depuis votre compte. Le Premium reste actif jusqu'à la fin de la période payée."],
   ['Que se passe-t-il si je dépasse 3 devis ?', 'Vous serez invité à passer en Premium. Vos devis existants restent accessibles.'],
-  ['Le paiement est-il sécurisé ?', 'Oui. Wave, Orange Money et CinetPay sont des plateformes certifiées. Aucune carte bancaire internationale requise.'],
+  ['Le paiement est-il sécurisé ?', 'Oui. FedaPay est une plateforme certifiée. Wave CI, Orange Money et MTN sont supportés.'],
   ['Mes données sont-elles conservées ?', 'Absolument — tous vos devis, clients et historiques sont conservés quel que soit votre plan.'],
 ]
 
-export default function SubscriptionPage() {
-  const router = useRouter()
+function SubscriptionContent() {
+  const router   = useRouter()
+  const searchParams = useSearchParams()
   const [org, setOrg]         = useState<Organization | null>(null)
+  const [orgId, setOrgId]     = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [userName, setUserName]   = useState('')
   const [loading, setLoading] = useState(true)
   const [period, setPeriod]   = useState<'month' | 'year'>('month')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const [modal, setModal]     = useState<'choix' | 'paying' | 'success' | null>(null)
+  const [paying, setPaying]   = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    loadData()
+
+    // Vérifier si retour de paiement
+    const status = searchParams.get('status')
+    if (status === 'success') {
+      setSuccessMsg('🎉 Paiement réussi ! Votre plan Premium est en cours d\'activation...')
+      // Recharger les données après 2s
+      setTimeout(() => loadData(), 2000)
+    } else if (status === 'cancelled') {
+      setSuccessMsg('')
+    }
+  }, [])
 
   const loadData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+
+    setUserEmail(user.email || '')
+    setUserName(user.user_metadata?.name || '')
 
     const { data: member } = await supabase
       .from('organization_members')
@@ -69,6 +83,7 @@ export default function SubscriptionPage() {
       .single()
 
     if (!member) { router.push('/login'); return }
+    setOrgId(member.organization_id)
 
     const { data: orgData } = await supabase
       .from('organizations')
@@ -80,10 +95,40 @@ export default function SubscriptionPage() {
     setLoading(false)
   }
 
-  const startPay = async (methodId: string) => {
-    setModal('paying')
-    await new Promise(r => setTimeout(r, 2200))
-    setModal('success')
+  const handlePay = async () => {
+    if (org?.plan === 'premium') return
+    setPaying(true)
+
+    try {
+      const amount = period === 'year' ? 7600 * 12 : 9500
+
+      const res = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          period,
+          org_id: orgId,
+          email:  userEmail,
+          name:   userName,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || !data.payment_url) {
+        alert('Erreur lors de la création du paiement. Réessayez.')
+        setPaying(false)
+        return
+      }
+
+      // Rediriger vers la page de paiement FedaPay
+      window.location.href = data.payment_url
+
+    } catch (err) {
+      alert('Erreur réseau. Réessayez.')
+      setPaying(false)
+    }
   }
 
   if (loading) {
@@ -106,6 +151,24 @@ export default function SubscriptionPage() {
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>Tarifs & Abonnement</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>{org?.name}</p>
         </div>
+
+        {/* Message succès paiement */}
+        {successMsg && (
+          <div style={{ background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: 12, padding: '16px 18px', marginBottom: 20, fontSize: 14, color: '#065F46', fontWeight: 600 }}>
+            {successMsg}
+          </div>
+        )}
+
+        {/* Plan actuel Premium */}
+        {org?.plan === 'premium' && (
+          <div style={{ background: 'var(--blue)', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span style={{ fontSize: 32 }}>⭐</span>
+            <div>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Vous êtes sur le plan Premium !</div>
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Devis illimités, IA avancée — tout est débloqué.</div>
+            </div>
+          </div>
+        )}
 
         {/* Toggle mensuel / annuel */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -154,10 +217,19 @@ export default function SubscriptionPage() {
             </div>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: period === 'year' ? 4 : 16 }}>{currentPrice.label}</div>
             {period === 'year' && <div style={{ color: 'var(--orange)', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Économisez {formatAmount(saving, 'XOF')} 🎁</div>}
-            <button onClick={() => setModal('choix')}
-              style={{ width: '100%', padding: '11px', borderRadius: 9, fontSize: 13, fontWeight: 800, background: 'var(--orange)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 16 }}>
-              {org?.plan === 'premium' ? '✅ Plan actuel' : 'Passer Premium →'}
+
+            <button onClick={handlePay} disabled={paying || org?.plan === 'premium'}
+              style={{ width: '100%', padding: '11px', borderRadius: 9, fontSize: 13, fontWeight: 800, background: org?.plan === 'premium' ? 'rgba(255,255,255,0.2)' : 'var(--orange)', color: '#fff', border: 'none', cursor: paying || org?.plan === 'premium' ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {paying ? (
+                <><div style={{ width: 16, height: 16, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Redirection...</>
+              ) : org?.plan === 'premium' ? '✅ Plan actuel' : `Passer Premium → ${formatAmount(period === 'year' ? 7600 * 12 : 9500, 'XOF')}`}
             </button>
+
+            {/* Méthodes de paiement acceptées */}
+            <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 11, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
+              💙 Wave CI &nbsp;·&nbsp; 🟠 Orange Money &nbsp;·&nbsp; 🟡 MTN MoMo &nbsp;·&nbsp; 💳 Carte bancaire
+            </div>
+
             <div style={{ height: 1, background: 'rgba(255,255,255,0.15)', marginBottom: 12 }} />
             {FEATURES_PREMIUM.map(f => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -168,24 +240,9 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
-        {/* Méthodes de paiement */}
-        <div style={{ background: '#F0F7FF', borderRadius: 16, padding: 18, marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: 'var(--blue)' }}>🌍 Méthodes de paiement acceptées</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8, marginBottom: 10 }}>
-            {METHODS.map(m => (
-              <div key={m.id}
-                style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 10, padding: '10px', textAlign: 'center' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = m.color)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{m.emoji}</div>
-                <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--blue)' }}>{m.label}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 2 }}>{m.note}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: '#fff', borderRadius: 8, padding: '9px 12px', fontSize: 11, color: 'var(--blue)' }}>
-            🔒 Paiements sécurisés. Aucune carte bancaire internationale requise.
-          </div>
+        {/* Sécurité */}
+        <div style={{ background: '#F0F7FF', borderRadius: 12, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          🔒 Paiements sécurisés via <strong>FedaPay</strong> — plateforme certifiée pour l'Afrique de l'Ouest. Aucune carte internationale requise.
         </div>
 
         {/* FAQ */}
@@ -210,70 +267,24 @@ export default function SubscriptionPage() {
           <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
           <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 17, marginBottom: 7 }}>Satisfait ou remboursé 7 jours</h3>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 18 }}>Essayez Premium sans risque. Remboursement intégral si vous n'êtes pas satisfait.</p>
-          <button onClick={() => setModal('choix')}
+          <button onClick={handlePay} disabled={paying || org?.plan === 'premium'}
             style={{ background: '#fff', color: 'var(--orange)', fontWeight: 800, fontSize: 14, padding: '12px 26px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-            Essayer Premium maintenant →
+            {org?.plan === 'premium' ? '✅ Déjà Premium' : 'Essayer Premium maintenant →'}
           </button>
         </div>
       </div>
-
-      {/* Modal */}
-      {modal && (
-        <div onClick={e => { if (e.target === e.currentTarget && modal !== 'paying') setModal(null) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 18, padding: 28, maxWidth: 400, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-
-            {modal === 'choix' && (
-              <>
-                <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--blue)', marginBottom: 4 }}>Passer en Premium ⭐</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>{formatAmount(currentPrice.price, 'XOF')} {currentPrice.label}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 9 }}>Choisissez votre méthode :</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                  {METHODS.map(m => (
-                    <button key={m.id} onClick={() => startPay(m.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 9, border: '2px solid var(--border)', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = m.color; e.currentTarget.style.background = m.color + '12' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = '#fff' }}>
-                      <span style={{ fontSize: 20 }}>{m.emoji}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--blue)' }}>{m.label}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{m.note}</div>
-                      </div>
-                      <span style={{ color: 'var(--text-muted)' }}>→</span>
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => setModal(null)}
-                  style={{ width: '100%', padding: '10px', borderRadius: 9, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: 13, cursor: 'pointer' }}>
-                  Annuler
-                </button>
-              </>
-            )}
-
-            {modal === 'paying' && (
-              <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                <div style={{ width: 44, height: 44, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 14px' }} />
-                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--blue)', marginBottom: 6 }}>Redirection en cours...</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Montant : {formatAmount(currentPrice.price, 'XOF')}</div>
-              </div>
-            )}
-
-            {modal === 'success' && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
-                <div style={{ fontWeight: 800, fontSize: 20, color: '#059669', marginBottom: 7 }}>Paiement réussi !</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
-                  Votre plan <strong>Premium ⭐</strong> est activé.<br />Devis illimités, IA avancée — tout est débloqué.
-                </div>
-                <button onClick={() => { setModal(null); router.push('/dashboard') }}
-                  style={{ width: '100%', padding: '12px', background: 'var(--orange)', color: '#fff', borderRadius: 10, fontWeight: 800, fontSize: 15, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Accéder à mon compte →
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </AppLayout>
+  )
+}
+
+export default function SubscriptionPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--orange)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      </div>
+    }>
+      <SubscriptionContent />
+    </Suspense>
   )
 }
