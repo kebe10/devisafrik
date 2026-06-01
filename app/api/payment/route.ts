@@ -16,15 +16,11 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
       },
       body: JSON.stringify({
-        description:  `DevisAfrik Premium - ${period === 'year' ? 'Annuel' : 'Mensuel'}`,
+        description: `DevisAfrik Premium - ${period === 'year' ? 'Annuel' : 'Mensuel'}`,
         amount,
-        currency:     { iso: 'XOF' },
-        // ✅ callback_url = webhook pour mise à jour du plan (serveur → serveur)
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/webhook`,
-        // ✅ return_url = redirection utilisateur après paiement réussi
-        return_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=success&org_id=${org_id}&period=${period}`,
-        // ✅ cancel_url = redirection si annulation
-        cancel_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=cancelled`,
+        currency:    { iso: 'XOF' },
+        // ✅ callback_url = URL de redirection après paiement (FedaPay y redirige l'utilisateur)
+        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=success&org_id=${org_id}&period=${period}`,
         customer: {
           email,
           lastname: name || 'Client',
