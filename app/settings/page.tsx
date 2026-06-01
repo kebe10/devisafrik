@@ -1,19 +1,23 @@
 // app/settings/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Organization } from '@/lib/supabase'
-import AppLayout from '../../components/AppLayout'
+import AppLayout from '@/components/AppLayout'
 
 export default function SettingsPage() {
   const router  = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving]   = useState(false)
-  const [saved, setSaved]     = useState(false)
-  const [orgId, setOrgId]     = useState('')
-  const [org, setOrg]         = useState<Organization | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState(false)
+  const [saved, setSaved]           = useState(false)
+  const [orgId, setOrgId]           = useState('')
+  const [org, setOrg]               = useState<Organization | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoPreview, setLogoPreview]     = useState<string | null>(null)
+
   const [form, setForm] = useState({
     name:                  '',
     email:                 '',
@@ -27,6 +31,7 @@ export default function SettingsPage() {
     default_currency:      'XOF',
     devis_color:           '#FF6B35',
     devis_footer:          '',
+    logo_url:              '',
   })
 
   useEffect(() => { loadData() }, [])
@@ -66,9 +71,60 @@ export default function SettingsPage() {
         default_currency:      orgData.default_currency || 'XOF',
         devis_color:           orgData.devis_color || '#FF6B35',
         devis_footer:          orgData.devis_footer || '',
+        logo_url:              orgData.logo_url || '',
       })
+      if (orgData.logo_url) setLogoPreview(orgData.logo_url)
     }
     setLoading(false)
+  }
+
+  // ✅ Upload logo vers Supabase Storage
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Vérifications
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image (PNG, JPG, SVG).')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('L\'image ne doit pas dépasser 2 MB.')
+      return
+    }
+
+    setUploadingLogo(true)
+
+    try {
+      const ext      = file.name.split('.').pop()
+      const fileName = `logos/${orgId}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('organization-assets')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('organization-assets')
+        .getPublicUrl(fileName)
+
+      const publicUrl = urlData.publicUrl + '?v=' + Date.now()
+
+      setLogoPreview(publicUrl)
+      setForm(f => ({ ...f, logo_url: publicUrl }))
+
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('Erreur lors de l\'upload du logo. Vérifiez que le bucket Supabase existe.')
+    }
+
+    setUploadingLogo(false)
+  }
+
+  const removeLogo = async () => {
+    setLogoPreview(null)
+    setForm(f => ({ ...f, logo_url: '' }))
   }
 
   const saveSettings = async () => {
@@ -90,6 +146,7 @@ export default function SettingsPage() {
         default_currency:      form.default_currency,
         devis_color:           form.devis_color,
         devis_footer:          form.devis_footer.trim() || null,
+        logo_url:              form.logo_url || null,
       })
       .eq('id', orgId)
 
@@ -116,6 +173,59 @@ export default function SettingsPage() {
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>Paramètres</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Informations de votre entreprise</p>
+        </div>
+
+        {/* ✅ Section Logo */}
+        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: 22, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: 'var(--blue)' }}>🖼️ Logo de l'entreprise</div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            {/* Aperçu logo */}
+            <div style={{
+              width: 90, height: 90, borderRadius: 12,
+              border: '2px dashed var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#F8F9FA', overflow: 'hidden', flexShrink: 0,
+            }}>
+              {logoPreview ? (
+                <img src={logoPreview} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                  <div style={{ fontSize: 28, marginBottom: 4 }}>🏢</div>
+                  <div>Aucun logo</div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+                Votre logo apparaîtra sur tous vos devis PDF.<br />
+                <span style={{ fontSize: 11 }}>PNG, JPG ou SVG · Max 2 MB · Recommandé : 200×200px</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploadingLogo}
+                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--orange)', color: '#fff', cursor: 'pointer', border: 'none' }}>
+                  {uploadingLogo ? '⏳ Upload...' : logoPreview ? '🔄 Changer le logo' : '📁 Choisir un logo'}
+                </button>
+                {logoPreview && (
+                  <button onClick={removeLogo}
+                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', border: '1px solid #FECACA' }}>
+                    🗑️ Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Entreprise */}
