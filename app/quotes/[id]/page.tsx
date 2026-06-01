@@ -138,7 +138,7 @@ export default function QuoteDetailPage() {
   const handleGeneratePDF = async () => {
     try {
       const { generateQuotePDF } = await import('@/lib/pdf')
-      generateQuotePDF({
+      await generateQuotePDF({
         quote_number: quoteNumber, title: title || 'Devis', status,
         tax_rate: taxRate, discount_amount: discount, subtotal,
         tax_amount: taxAmount, total, payment_terms: paymentTerms,
@@ -157,6 +157,7 @@ export default function QuoteDetailPage() {
           email: org?.email, address: org?.address, rccm: org?.rccm,
           devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
           currency: org?.default_currency || 'XOF',
+          logo_url: org?.logo_url || null, 
         },
       })
       setPdfReady(true)
