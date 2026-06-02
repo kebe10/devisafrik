@@ -28,7 +28,10 @@ export default function NewQuotePage() {
   const [pdfReady, setPdfReady]   = useState(false)
   const [showClients, setShowClients] = useState(false)
   const [aiText, setAiText]   = useState('')
-  const [saved, setSaved]     = useState(false)
+  const [saved, setSaved]         = useState(false)
+  const [showCatalogue, setShowCatalogue] = useState(false)
+  const [catalogue, setCatalogue]         = useState<any[]>([])
+  const [catSearch, setCatSearch]         = useState('')
 
   const [title, setTitle]           = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
@@ -67,6 +70,14 @@ export default function NewQuotePage() {
 
     setOrg(orgData)
     setClients(clientsData || [])
+
+    // Charger le catalogue de services
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('*')
+      .eq('organization_id', member.organization_id)
+      .order('name')
+    setCatalogue(servicesData || [])
     if (orgData) {
       setTaxRate(orgData.default_tax_rate || 18)
       setPaymentTerms(orgData.default_payment_terms || 'Paiement à la livraison')
@@ -163,7 +174,7 @@ export default function NewQuotePage() {
   const handleGeneratePDF = async () => {
     try {
       const { generateQuotePDF } = await import('@/lib/pdf')
-      await generateQuotePDF({
+      generateQuotePDF({
         quote_number: quoteNumber, title: title || 'Devis', status,
         tax_rate: taxRate, discount_amount: discount, subtotal,
         tax_amount: taxAmount, total, payment_terms: paymentTerms,
@@ -182,7 +193,6 @@ export default function NewQuotePage() {
           email: org?.email, address: org?.address, rccm: org?.rccm,
           devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
           currency: org?.default_currency || 'XOF',
-          logo_url: org?.logo_url || null, 
         },
       })
       setPdfReady(true)
@@ -388,6 +398,14 @@ export default function NewQuotePage() {
                 style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer', marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                 ➕ Ajouter une ligne
               </button>
+
+              {/* ✅ Bouton catalogue */}
+              {catalogue.length > 0 && (
+                <button onClick={() => setShowCatalogue(true)}
+                  style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#F0F4FF', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: 'pointer', marginTop: 8, width: '100%', boxSizing: 'border-box' }}>
+                  🛠️ Ajouter depuis le catalogue
+                </button>
+              )}
             </div>
 
             {/* Notes */}
@@ -470,6 +488,57 @@ export default function NewQuotePage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ Modal catalogue de services */}
+      {showCatalogue && (
+        <div onClick={() => setShowCatalogue(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 18, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--blue)' }}>🛠️ Catalogue de services</div>
+              <button onClick={() => setShowCatalogue(false)}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
+            </div>
+            <input placeholder="🔍 Rechercher..." value={catSearch} onChange={e => setCatSearch(e.target.value)}
+              style={{ marginBottom: 12 }} />
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {catalogue
+                .filter(s => !catSearch || s.name.toLowerCase().includes(catSearch.toLowerCase()))
+                .map(s => (
+                  <div key={s.id}
+                    onClick={() => {
+                      setItems(prev => [...prev, {
+                        id:          Date.now(),
+                        description: s.name,
+                        quantity:    1,
+                        unit:        s.unit,
+                        unit_price:  s.unit_price,
+                      }])
+                      setShowCatalogue(false)
+                      setCatSearch('')
+                    }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 10, marginBottom: 8, border: '1.5px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--orange)'; e.currentTarget.style.background = '#FFF9F6' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = '#fff' }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                      {s.description && <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>{s.description}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--orange)', fontSize: 14 }}>{formatAmount(s.unit_price, currency)}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>par {s.unit}</div>
+                    </div>
+                  </div>
+                ))}
+              {catalogue.filter(s => !catSearch || s.name.toLowerCase().includes(catSearch.toLowerCase())).length === 0 && (
+                <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>Aucun service trouvé</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .quote-new-grid {

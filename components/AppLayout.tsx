@@ -18,6 +18,7 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
   const navItems = [
     { key: 'dashboard',    icon: '🏠', label: 'Tableau de bord', path: '/dashboard' },
     { key: 'quotes',       icon: '📄', label: 'Devis',           path: '/quotes' },
+    { key: 'services',     icon: '🛠️', label: 'Catalogue',       path: '/services' },
     { key: 'clients',      icon: '👥', label: 'Clients',         path: '/clients' },
     { key: 'settings',     icon: '⚙️', label: 'Paramètres',      path: '/settings' },
     { key: 'subscription', icon: '⭐', label: 'Tarifs',          path: '/subscription' },
@@ -139,7 +140,7 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
           onClick={() => setMenuOpen(false)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 100, display: 'none',
+            zIndex: 100,
           }}
           className="mobile-overlay"
         >
@@ -196,30 +197,34 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         alignItems: 'center',
         boxShadow: '0 -2px 10px rgba(0,0,0,0.15)',
       }}>
-        {navItems.slice(0, 4).map(item => (
-          <button key={item.key} onClick={() => navigate(item.path)}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              color: isActive(item.path) ? '#fff' : 'rgba(255,255,255,0.5)',
-              background: isActive(item.path) ? 'rgba(255,255,255,0.12)' : 'none',
-              border: 'none', cursor: 'pointer', padding: '6px 12px',
-              borderRadius: 10, minWidth: 56, fontFamily: 'inherit',
-              transition: 'all .15s',
-            }}>
-            <span style={{ fontSize: 22 }}>{item.icon}</span>
-            <span style={{ fontSize: 10, fontWeight: 600 }}>{item.label}</span>
-          </button>
-        ))}
+        {/* Dashboard */}
+        <button onClick={() => navigate('/dashboard')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: isActive('/dashboard') ? '#fff' : 'rgba(255,255,255,0.5)', background: isActive('/dashboard') ? 'rgba(255,255,255,0.12)' : 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 10, fontFamily: 'inherit' }}>
+          <span style={{ fontSize: 22 }}>🏠</span>
+          <span style={{ fontSize: 10, fontWeight: 600 }}>Accueil</span>
+        </button>
+        {/* Devis */}
+        <button onClick={() => navigate('/quotes')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: isActive('/quotes') ? '#fff' : 'rgba(255,255,255,0.5)', background: isActive('/quotes') ? 'rgba(255,255,255,0.12)' : 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 10, fontFamily: 'inherit' }}>
+          <span style={{ fontSize: 22 }}>📄</span>
+          <span style={{ fontSize: 10, fontWeight: 600 }}>Devis</span>
+        </button>
         {/* Bouton nouveau devis central */}
         <button onClick={() => navigate('/quotes/new')}
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            background: 'var(--orange)', border: 'none', cursor: 'pointer',
-            width: 52, height: 52, borderRadius: '50%', marginTop: -16,
-            boxShadow: '0 4px 14px rgba(255,107,53,0.5)',
-            color: '#fff', fontFamily: 'inherit',
-          }}>
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'var(--orange)', border: 'none', cursor: 'pointer', width: 52, height: 52, borderRadius: '50%', marginTop: -16, boxShadow: '0 4px 14px rgba(255,107,53,0.5)', color: '#fff', fontFamily: 'inherit' }}>
           <span style={{ fontSize: 24 }}>➕</span>
+        </button>
+        {/* Catalogue */}
+        <button onClick={() => navigate('/services')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: isActive('/services') ? '#fff' : 'rgba(255,255,255,0.5)', background: isActive('/services') ? 'rgba(255,255,255,0.12)' : 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 10, fontFamily: 'inherit' }}>
+          <span style={{ fontSize: 22 }}>🛠️</span>
+          <span style={{ fontSize: 10, fontWeight: 600 }}>Catalogue</span>
+        </button>
+        {/* Clients */}
+        <button onClick={() => navigate('/clients')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: isActive('/clients') ? '#fff' : 'rgba(255,255,255,0.5)', background: isActive('/clients') ? 'rgba(255,255,255,0.12)' : 'none', border: 'none', cursor: 'pointer', padding: '6px 10px', borderRadius: 10, fontFamily: 'inherit' }}>
+          <span style={{ fontSize: 22 }}>👥</span>
+          <span style={{ fontSize: 10, fontWeight: 600 }}>Clients</span>
         </button>
       </nav>
     </div>
