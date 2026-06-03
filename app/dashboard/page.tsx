@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation'
 import { supabase, formatAmount, QUOTE_STATUSES } from '@/lib/supabase'
 import type { Quote, Organization } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts'
 
 interface Stats {
   total: number; revenue: number; sent: number
@@ -16,12 +20,23 @@ type QuoteWithClient = Quote & {
   client: { name: string; phone?: string } | null
 }
 
+const MONTHS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+const PIE_COLORS = ['#FF6B35', '#1E3A5F', '#10B981', '#F59E0B', '#8B5CF6']
+
+const PERIODS = [
+  { label: '3 mois',  value: 3  },
+  { label: '6 mois',  value: 6  },
+  { label: '12 mois', value: 12 },
+]
+
 export default function DashboardPage() {
   const router = useRouter()
-  const [org, setOrg]       = useState<Organization | null>(null)
-  const [quotes, setQuotes] = useState<QuoteWithClient[]>([])
-  const [stats, setStats]   = useState<Stats>({ total: 0, revenue: 0, sent: 0, pending: 0, accepted: 0, paid: 0 })
+  const [org, setOrg]         = useState<Organization | null>(null)
+  const [quotes, setQuotes]   = useState<QuoteWithClient[]>([])
+  const [allQuotes, setAllQuotes] = useState<any[]>([])
+  const [stats, setStats]     = useState<Stats>({ total: 0, revenue: 0, sent: 0, pending: 0, accepted: 0, paid: 0 })
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod]   = useState(6)
 
   const loadData = useCallback(async () => {
     try {
@@ -45,12 +60,14 @@ export default function DashboardPage() {
 
       setOrg(orgData)
 
-      const { data: allQuotes } = await supabase
+      const { data: quotesAll } = await supabase
         .from('quotes')
-        .select('id, status, total')
+        .select('id, status, total, created_at, client:clients(name)')
         .eq('organization_id', member.organization_id)
+        .order('created_at', { ascending: false })
 
-      const all = allQuotes || []
+      const all = quotesAll || []
+      setAllQuotes(all)
       setStats({
         total:    all.length,
         revenue:  all.filter(q => q.status === 'paid').reduce((s, q) => s + (q.total || 0), 0),
@@ -77,6 +94,73 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // ── Calcul des données graphiques ─────────────────────────
+
+  // 1. Revenus & devis par mois
+  const revenueByMonth = () => {
+    const now   = new Date()
+    const result = []
+    for (let i = period - 1; i >= 0; i--) {
+      const d     = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const month = d.getMonth()
+      const year  = d.getFullYear()
+      const monthQuotes = allQuotes.filter(q => {
+        const qd = new Date(q.created_at)
+        return qd.getMonth() === month && qd.getFullYear() === year
+      })
+      result.push({
+        name:    MONTHS[month],
+        revenus: monthQuotes.filter(q => q.status === 'paid').reduce((s, q) => s + (q.total || 0), 0),
+        devis:   monthQuotes.length,
+      })
+    }
+    return result
+  }
+
+  // 2. Devis par statut (camembert)
+  const quotesByStatus = () => {
+    const statusLabels: Record<string, string> = {
+      draft:    'Brouillon',
+      sent:     'Envoyé',
+      accepted: 'Accepté',
+      paid:     'Payé',
+      cancelled:'Annulé',
+    }
+    const counts: Record<string, number> = {}
+    allQuotes.forEach(q => {
+      counts[q.status] = (counts[q.status] || 0) + 1
+    })
+    return Object.entries(counts)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => ({ name: statusLabels[k] || k, value: v }))
+  }
+
+  // 3. Top clients par revenus
+  const topClients = () => {
+    const clientRevenue: Record<string, number> = {}
+    allQuotes
+      .filter(q => q.status === 'paid' && q.client?.name)
+      .forEach(q => {
+        const name = q.client.name
+        clientRevenue[name] = (clientRevenue[name] || 0) + (q.total || 0)
+      })
+    return Object.entries(clientRevenue)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, total]) => ({ name: name.length > 14 ? name.substring(0, 12) + '…' : name, total }))
+  }
+
+  const currency       = org?.default_currency || 'XOF'
+  const monthlyData    = revenueByMonth()
+  const statusData     = quotesByStatus()
+  const clientData     = topClients()
+
+  const fmtYAxis = (v: number) => {
+    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M'
+    if (v >= 1000)    return (v / 1000).toFixed(0) + 'k'
+    return String(v)
+  }
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
@@ -87,8 +171,6 @@ export default function DashboardPage() {
       </div>
     )
   }
-
-  const currency = org?.default_currency || 'XOF'
 
   return (
     <AppLayout org={org}>
@@ -107,11 +189,7 @@ export default function DashboardPage() {
         </div>
 
         {/* CTA bannière */}
-        <div style={{
-          background: 'linear-gradient(135deg, var(--orange) 0%, #FF8C5A 100%)',
-          borderRadius: 16, padding: '20px 24px', marginBottom: 22,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
-        }}>
+        <div style={{ background: 'linear-gradient(135deg, var(--orange) 0%, #FF8C5A 100%)', borderRadius: 16, padding: '20px 24px', marginBottom: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 3 }}>Créer un nouveau devis</div>
             <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Professionnel en moins de 60 secondes</div>
@@ -122,13 +200,13 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Stats */}
+        {/* Stats cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 22 }}>
           {[
-            { label: 'Total devis',       value: stats.total,                        icon: '📄', color: 'var(--orange)' },
+            { label: 'Total devis',       value: stats.total,                          icon: '📄', color: 'var(--orange)' },
             { label: 'Revenus encaissés', value: formatAmount(stats.revenue, currency), icon: '💰', color: '#10B981' },
-            { label: 'Devis acceptés',    value: stats.accepted,                     icon: '✅', color: '#059669' },
-            { label: 'Devis payés',       value: stats.paid,                         icon: '💵', color: 'var(--blue)' },
+            { label: 'Devis acceptés',    value: stats.accepted,                       icon: '✅', color: '#059669' },
+            { label: 'Devis payés',       value: stats.paid,                           icon: '💵', color: 'var(--blue)' },
           ].map(stat => (
             <div key={stat.label} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '14px', boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -166,6 +244,120 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── STATISTIQUES AVANCÉES ── */}
+        {allQuotes.length > 0 && (
+          <>
+            {/* Sélecteur de période */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--blue)' }}>📊 Statistiques</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {PERIODS.map(p => (
+                 <button key={p.value} onClick={() => setPeriod(p.value)}
+                 style={{
+    padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+    background: period === p.value ? 'var(--blue)' : '#fff',
+    color: period === p.value ? '#fff' : 'var(--text-muted)',
+    border: period === p.value ? '1px solid var(--blue)' : '1px solid var(--border)',
+  }}>
+  {p.label}
+</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Graphique 1 — Revenus par mois */}
+            <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--blue)' }}>💰 Revenus encaissés par mois</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={monthlyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={fmtYAxis} tick={{ fontSize: 11 }} width={45} />
+                  <Tooltip
+                    formatter={(value: number) => [formatAmount(value, currency), 'Revenus']}
+                    contentStyle={{ borderRadius: 10, fontSize: 12 }}
+                  />
+                  <Bar dataKey="revenus" fill="#FF6B35" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Graphique 2 — Évolution du nombre de devis */}
+            <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--blue)' }}>📈 Évolution du nombre de devis</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={monthlyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} width={35} allowDecimals={false} />
+                  <Tooltip
+                    formatter={(value: number) => [value, 'Devis créés']}
+                    contentStyle={{ borderRadius: 10, fontSize: 12 }}
+                  />
+                  <Line type="monotone" dataKey="devis" stroke="#1E3A5F" strokeWidth={2.5} dot={{ fill: '#1E3A5F', r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Graphiques 3 & 4 — côte à côte sur desktop */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 22 }}>
+
+              {/* Graphique 3 — Devis par statut */}
+              <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--blue)' }}>🥧 Devis par statut</div>
+                {statusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%" cy="50%"
+                        innerRadius={55} outerRadius={85}
+                        paddingAngle={3}
+                        dataKey="value"
+                        label={({ name, percent }: { name: string; percent: number }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                        labelLine={false}
+                      >
+                        {statusData.map((_, index) => (
+                          <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 13 }}>Pas encore de données</div>
+                )}
+              </div>
+
+              {/* Graphique 4 — Top clients */}
+              <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', boxShadow: 'var(--shadow-sm)' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--blue)' }}>🏆 Top clients (revenus)</div>
+                {clientData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={clientData} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" horizontal={false} />
+                      <XAxis type="number" tickFormatter={fmtYAxis} tick={{ fontSize: 10 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                      <Tooltip
+                        formatter={(value: number) => [formatAmount(value, currency), 'Revenus']}
+                        contentStyle={{ borderRadius: 10, fontSize: 12 }}
+                      />
+                      <Bar dataKey="total" fill="#10B981" radius={[0, 6, 6, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 13 }}>
+                    Aucun devis payé pour l'instant
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Devis récents */}
         <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -190,11 +382,7 @@ export default function DashboardPage() {
               const st = QUOTE_STATUSES[q.status as keyof typeof QUOTE_STATUSES] || QUOTE_STATUSES.draft
               return (
                 <div key={q.id} onClick={() => router.push(`/quotes/${q.id}`)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 0', borderBottom: i < quotes.length - 1 ? '1px solid var(--border)' : 'none',
-                    flexWrap: 'wrap', gap: 10, cursor: 'pointer',
-                  }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < quotes.length - 1 ? '1px solid var(--border)' : 'none', flexWrap: 'wrap', gap: 10, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
