@@ -15,7 +15,22 @@ interface Item {
   unit_price:  number
 }
 
+interface StatusHistory {
+  id:         string
+  old_status: string | null
+  new_status: string
+  changed_at: string
+}
+
 const UNITS = ['forfait', 'unité', 'heure', 'jour', 'm²', 'ml', 'kg']
+
+const STATUS_ICONS: Record<string, string> = {
+  draft:     '📝',
+  sent:      '📤',
+  accepted:  '✅',
+  paid:      '💵',
+  cancelled: '❌',
+}
 
 export default function QuoteDetailPage() {
   const router  = useRouter()
@@ -32,6 +47,8 @@ export default function QuoteDetailPage() {
   const [showCatalogue, setShowCatalogue] = useState(false)
   const [catalogue, setCatalogue]         = useState<any[]>([])
   const [catSearch, setCatSearch]         = useState('')
+  const [history, setHistory]             = useState<StatusHistory[]>([])
+  const [prevStatus, setPrevStatus]       = useState('')
 
   const [quoteNumber, setQuoteNumber]   = useState('')
   const [title, setTitle]               = useState('')
@@ -59,19 +76,22 @@ export default function QuoteDetailPage() {
 
     if (!member) { router.push('/login'); return }
 
-    const [{ data: orgData }, { data: clientsData }, { data: quoteData }] = await Promise.all([
+    const [{ data: orgData }, { data: clientsData }, { data: quoteData }, { data: historyData }] = await Promise.all([
       supabase.from('organizations').select('*').eq('id', member.organization_id).single(),
       supabase.from('clients').select('*').eq('organization_id', member.organization_id).order('name'),
       supabase.from('quotes').select('*, client:clients(*), items:quote_items(*)').eq('id', quoteId).single(),
+      supabase.from('quote_status_history').select('*').eq('quote_id', quoteId).order('changed_at', { ascending: true }),
     ])
 
     if (!quoteData) { router.push('/quotes'); return }
 
     setOrg(orgData)
     setClients(clientsData || [])
+    setHistory(historyData || [])
     setQuoteNumber(quoteData.quote_number)
     setTitle(quoteData.title || '')
     setStatus(quoteData.status)
+    setPrevStatus(quoteData.status)
     setTaxRate(quoteData.tax_rate || 18)
     setDiscount(quoteData.discount_amount || 0)
     setPaymentTerms(quoteData.payment_terms || 'Paiement à la livraison')
@@ -86,7 +106,6 @@ export default function QuoteDetailPage() {
       })))
     }
 
-    // Charger le catalogue de services
     const { data: servicesData } = await supabase
       .from('services')
       .select('*')
@@ -114,6 +133,8 @@ export default function QuoteDetailPage() {
   const updateQuote = async (redirect = false) => {
     setSaving(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+
       const { error } = await supabase
         .from('quotes')
         .update({
@@ -124,6 +145,24 @@ export default function QuoteDetailPage() {
         .eq('id', quoteId)
 
       if (error) throw error
+
+      // ✅ Enregistrer le changement de statut si différent
+      if (status !== prevStatus) {
+        await supabase.from('quote_status_history').insert({
+          quote_id:   quoteId,
+          old_status: prevStatus,
+          new_status: status,
+          changed_by: user?.id,
+        })
+        // Recharger l'historique
+        const { data: newHistory } = await supabase
+          .from('quote_status_history')
+          .select('*')
+          .eq('quote_id', quoteId)
+          .order('changed_at', { ascending: true })
+        setHistory(newHistory || [])
+        setPrevStatus(status)
+      }
 
       await supabase.from('quote_items').delete().eq('quote_id', quoteId)
 
@@ -353,13 +392,11 @@ export default function QuoteDetailPage() {
                 ))}
               </div>
 
-              {/* Boutons ajouter */}
               <button onClick={addItem}
                 style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer', marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                 ➕ Ajouter une ligne
               </button>
 
-              {/* ✅ Bouton catalogue */}
               {catalogue.length > 0 && (
                 <button onClick={() => setShowCatalogue(true)}
                   style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#F0F4FF', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: 'pointer', marginTop: 8, width: '100%', boxSizing: 'border-box' }}>
@@ -379,6 +416,55 @@ export default function QuoteDetailPage() {
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Informations supplémentaires..." style={{ resize: 'vertical' }} />
               </div>
             </div>
+
+            {/* ✅ Historique des statuts */}
+            {history.length > 0 && (
+              <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: 'var(--blue)' }}>🕐 Historique</div>
+                <div style={{ position: 'relative' }}>
+                  {/* Ligne verticale */}
+                  <div style={{ position: 'absolute', left: 15, top: 8, bottom: 8, width: 2, background: 'var(--border)' }} />
+                  {history.map((h, i) => {
+                    const newSt = QUOTE_STATUSES[h.new_status as keyof typeof QUOTE_STATUSES]
+                    const oldSt = h.old_status ? QUOTE_STATUSES[h.old_status as keyof typeof QUOTE_STATUSES] : null
+                    const date  = new Date(h.changed_at)
+                    return (
+                      <div key={h.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: i < history.length - 1 ? 16 : 0, position: 'relative' }}>
+                        {/* Cercle statut */}
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                          background: newSt?.bg || '#F0F4FF',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 14, zIndex: 1,
+                          border: `2px solid ${newSt?.color || 'var(--border)'}`,
+                        }}>
+                          {STATUS_ICONS[h.new_status] || '📋'}
+                        </div>
+                        {/* Contenu */}
+                        <div style={{ flex: 1, paddingTop: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                            {oldSt ? (
+                              <>
+                                <span style={{ color: oldSt.color }}>{oldSt.label}</span>
+                                {' → '}
+                                <span style={{ color: newSt?.color }}>{newSt?.label}</span>
+                              </>
+                            ) : (
+                              <span style={{ color: newSt?.color }}>Devis créé · {newSt?.label}</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {' à '}
+                            {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Colonne droite — Récapitulatif */}
@@ -449,7 +535,7 @@ export default function QuoteDetailPage() {
         </div>
       </div>
 
-      {/* ✅ Modal catalogue */}
+      {/* Modal catalogue */}
       {showCatalogue && (
         <div onClick={() => setShowCatalogue(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -467,10 +553,7 @@ export default function QuoteDetailPage() {
                 .map(s => (
                   <div key={s.id}
                     onClick={() => {
-                      setItems(prev => [...prev, {
-                        id: Date.now(), description: s.name,
-                        quantity: 1, unit: s.unit, unit_price: s.unit_price,
-                      }])
+                      setItems(prev => [...prev, { id: Date.now(), description: s.name, quantity: 1, unit: s.unit, unit_price: s.unit_price }])
                       setShowCatalogue(false)
                       setCatSearch('')
                     }}
