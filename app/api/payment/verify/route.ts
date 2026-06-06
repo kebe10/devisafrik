@@ -97,6 +97,29 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── 6. Enregistrer le paiement dans la table subscriptions ──
+    const amount = transaction?.amount || (period === 'year' ? 7600 * 12 : 9500)
+    const currency = transaction?.currency?.iso || 'XOF'
+
+    const { error: subError } = await supabaseAdmin
+      .from('subscriptions')
+      .insert({
+        organization_id:    org_id,
+        plan:               'premium',
+        status:             'active',
+        payment_provider:   'fedapay',
+        payment_reference:  transaction_id,
+        amount,
+        currency,
+        starts_at:          now.toISOString(),
+        expire_at:          expiresAt.toISOString(),
+      })
+
+    if (subError) {
+      // On log l'erreur mais on ne bloque pas — le Premium est déjà activé
+      console.error('Erreur insert subscriptions:', subError)
+    }
+
     return NextResponse.json({ activated: true })
 
   } catch (err) {
