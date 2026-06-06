@@ -29,6 +29,56 @@ const PERIODS = [
   { label: '12 mois', value: 12 },
 ]
 
+// ── Bloc affiché à la place des stats avancées pour les non-premium ──
+function PremiumStatsBanner({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <div style={{
+      background: '#fff',
+      border: '1.5px dashed #F59E0B',
+      borderRadius: 16,
+      padding: '36px 24px',
+      marginBottom: 22,
+      textAlign: 'center',
+      boxShadow: 'var(--shadow-sm)',
+    }}>
+      {/* Aperçu flou des graphiques */}
+      <div style={{ position: 'relative', marginBottom: 24, pointerEvents: 'none', userSelect: 'none' }}>
+        <div style={{ filter: 'blur(6px)', opacity: 0.35, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          {/* Faux graphique bars */}
+          <div style={{ background: '#F8F9FA', borderRadius: 12, padding: 16, height: 120, display: 'flex', alignItems: 'flex-end', gap: 6, justifyContent: 'center' }}>
+            {[40, 70, 50, 90, 60, 80].map((h, i) => (
+              <div key={i} style={{ width: 18, height: `${h}%`, background: '#FF6B35', borderRadius: '4px 4px 0 0', opacity: 0.7 }} />
+            ))}
+          </div>
+          {/* Faux graphique pie */}
+          <div style={{ background: '#F8F9FA', borderRadius: 12, padding: 16, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'conic-gradient(#FF6B35 0% 35%, #1E3A5F 35% 60%, #10B981 60% 80%, #F59E0B 80% 100%)' }} />
+          </div>
+        </div>
+        {/* Overlay dégradé */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.85) 100%)', borderRadius: 12 }} />
+      </div>
+
+      <div style={{ fontSize: 28, marginBottom: 10 }}>⭐</div>
+      <div style={{ fontWeight: 700, fontSize: 16, color: '#92400E', marginBottom: 6 }}>
+        Fonctionnalité Premium
+      </div>
+      <div style={{ fontSize: 13, color: '#B45309', marginBottom: 20, maxWidth: 340, margin: '0 auto 20px' }}>
+        Passez en Premium pour accéder aux statistiques avancées : revenus par mois, évolution des devis, top clients et répartition par statut.
+      </div>
+      <button
+        onClick={onUpgrade}
+        style={{
+          padding: '11px 28px', borderRadius: 10, fontSize: 14, fontWeight: 700,
+          background: '#F59E0B', color: '#fff', border: 'none', cursor: 'pointer',
+          boxShadow: '0 4px 14px rgba(245,158,11,0.35)',
+        }}>
+        Passer Premium →
+      </button>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [org, setOrg]             = useState<Organization | null>(null)
@@ -140,6 +190,7 @@ export default function DashboardPage() {
   }
 
   const currency    = org?.default_currency || 'XOF'
+  const isPremium   = org?.plan === 'premium'
   const monthlyData = revenueByMonth()
   const statusData  = quotesByStatus()
   const clientData  = topClients()
@@ -209,7 +260,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Plan gratuit */}
+        {/* Plan gratuit — barre de progression */}
         {org?.plan === 'free' && (
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -234,27 +285,32 @@ export default function DashboardPage() {
         )}
 
         {/* ── STATISTIQUES AVANCÉES ── */}
-        {allQuotes.length > 0 && (
-          <>
-            {/* Sélecteur de période */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--blue)' }}>📊 Statistiques</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {PERIODS.map(p => (
-                  <button key={p.value} onClick={() => setPeriod(p.value)}
-                    style={{
-                      padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                      cursor: 'pointer', fontFamily: 'inherit',
-                      background: period === p.value ? 'var(--blue)' : '#fff',
-                      color: period === p.value ? '#fff' : 'var(--text-muted)',
-                      border: period === p.value ? '1px solid var(--blue)' : '1px solid var(--border)',
-                    }}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+        {/* Toujours afficher le titre de la section */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--blue)' }}>📊 Statistiques</div>
+          {isPremium && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              {PERIODS.map(p => (
+                <button key={p.value} onClick={() => setPeriod(p.value)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    background: period === p.value ? 'var(--blue)' : '#fff',
+                    color: period === p.value ? '#fff' : 'var(--text-muted)',
+                    border: period === p.value ? '1px solid var(--blue)' : '1px solid var(--border)',
+                  }}>
+                  {p.label}
+                </button>
+              ))}
             </div>
+          )}
+        </div>
 
+        {/* Bloc premium ou graphiques */}
+        {!isPremium ? (
+          <PremiumStatsBanner onUpgrade={() => router.push('/subscription')} />
+        ) : allQuotes.length > 0 ? (
+          <>
             {/* Graphique 1 — Revenus par mois */}
             <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--blue)' }}>💰 Revenus encaissés par mois</div>
@@ -311,11 +367,7 @@ export default function DashboardPage() {
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
-                      <Legend
-                        iconType="circle"
-                        iconSize={10}
-                        wrapperStyle={{ fontSize: 11 }}
-                      />
+                      <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 11 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
@@ -347,6 +399,10 @@ export default function DashboardPage() {
               </div>
             </div>
           </>
+        ) : (
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 20px', marginBottom: 22, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            Créez vos premiers devis pour voir apparaître vos statistiques.
+          </div>
         )}
 
         {/* Devis récents */}
@@ -398,6 +454,7 @@ export default function DashboardPage() {
             })
           )}
         </div>
+
       </div>
     </AppLayout>
   )

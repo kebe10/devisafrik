@@ -50,14 +50,14 @@ export default function QuoteDetailPage() {
   const [history, setHistory]             = useState<StatusHistory[]>([])
   const [prevStatus, setPrevStatus]       = useState('')
 
-  const [quoteNumber, setQuoteNumber]   = useState('')
-  const [title, setTitle]               = useState('')
+  const [quoteNumber, setQuoteNumber]       = useState('')
+  const [title, setTitle]                   = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [status, setStatus]             = useState('draft')
-  const [taxRate, setTaxRate]           = useState(18)
-  const [discount, setDiscount]         = useState(0)
-  const [paymentTerms, setPaymentTerms] = useState('Paiement à la livraison')
-  const [notes, setNotes]               = useState('')
+  const [status, setStatus]                 = useState('draft')
+  const [taxRate, setTaxRate]               = useState(18)
+  const [discount, setDiscount]             = useState(0)
+  const [paymentTerms, setPaymentTerms]     = useState('Paiement à la livraison')
+  const [notes, setNotes]                   = useState('')
   const [items, setItems] = useState<Item[]>([
     { id: 1, description: '', quantity: 1, unit: 'forfait', unit_price: 0 }
   ])
@@ -117,6 +117,7 @@ export default function QuoteDetailPage() {
   }
 
   const currency  = org?.default_currency || 'XOF'
+  const isPremium = org?.plan === 'premium'
   const subtotal  = items.reduce((s, i) => s + i.quantity * i.unit_price, 0)
   const taxAmount = subtotal * (taxRate / 100)
   const total     = subtotal + taxAmount - discount
@@ -146,7 +147,6 @@ export default function QuoteDetailPage() {
 
       if (error) throw error
 
-      // ✅ Enregistrer le changement de statut si différent
       if (status !== prevStatus) {
         await supabase.from('quote_status_history').insert({
           quote_id:   quoteId,
@@ -154,7 +154,6 @@ export default function QuoteDetailPage() {
           new_status: status,
           changed_by: user?.id,
         })
-        // Recharger l'historique
         const { data: newHistory } = await supabase
           .from('quote_status_history')
           .select('*')
@@ -268,9 +267,10 @@ export default function QuoteDetailPage() {
           </div>
         </div>
 
+        {/* ── GRID PRINCIPAL ── */}
         <div className="quote-detail-grid">
 
-          {/* Colonne gauche */}
+          {/* ── COLONNE GAUCHE ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
             {/* Infos devis */}
@@ -330,16 +330,16 @@ export default function QuoteDetailPage() {
               )}
             </div>
 
-            {/* Lignes */}
+            {/* Lignes de prestations */}
             <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Prestations / Produits</div>
 
+              {/* Vue desktop */}
               <div className="items-header-d" style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 6 }}>
                 {['Description', 'Qté', 'Unité', 'Prix unit.', ''].map(h => (
                   <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{h}</div>
                 ))}
               </div>
-
               <div className="items-rows-d">
                 {items.map(item => (
                   <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 7, alignItems: 'center' }}>
@@ -355,6 +355,7 @@ export default function QuoteDetailPage() {
                 ))}
               </div>
 
+              {/* Vue mobile */}
               <div className="items-rows-m">
                 {items.map((item, idx) => (
                   <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)', boxSizing: 'border-box' }}>
@@ -396,7 +397,6 @@ export default function QuoteDetailPage() {
                 style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer', marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                 ➕ Ajouter une ligne
               </button>
-
               {catalogue.length > 0 && (
                 <button onClick={() => setShowCatalogue(true)}
                   style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#F0F4FF', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: 'pointer', marginTop: 8, width: '100%', boxSizing: 'border-box' }}>
@@ -405,7 +405,7 @@ export default function QuoteDetailPage() {
               )}
             </div>
 
-            {/* Notes */}
+            {/* Notes & conditions */}
             <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }}>Conditions de paiement</label>
@@ -418,11 +418,24 @@ export default function QuoteDetailPage() {
             </div>
 
             {/* ✅ Historique des statuts */}
-            {history.length > 0 && (
-              <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: 'var(--blue)' }}>🕐 Historique</div>
+            <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14, color: 'var(--blue)' }}>🕐 Historique</div>
+
+              {!isPremium ? (
+                /* Bloc Premium */
+                <div style={{ textAlign: 'center', padding: '20px 16px', background: '#FFFBEB', borderRadius: 10, border: '1.5px dashed #F59E0B' }}>
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>⭐</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#92400E', marginBottom: 4 }}>Fonctionnalité Premium</div>
+                  <div style={{ fontSize: 12, color: '#B45309', marginBottom: 14 }}>Passez en Premium pour accéder à cette fonctionnalité.</div>
+                  <button
+                    onClick={() => router.push('/subscription')}
+                    style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: '#F59E0B', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                    Passer Premium →
+                  </button>
+                </div>
+              ) : history.length > 0 ? (
+                /* Timeline */
                 <div style={{ position: 'relative' }}>
-                  {/* Ligne verticale */}
                   <div style={{ position: 'absolute', left: 15, top: 8, bottom: 8, width: 2, background: 'var(--border)' }} />
                   {history.map((h, i) => {
                     const newSt = QUOTE_STATUSES[h.new_status as keyof typeof QUOTE_STATUSES]
@@ -430,7 +443,6 @@ export default function QuoteDetailPage() {
                     const date  = new Date(h.changed_at)
                     return (
                       <div key={h.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: i < history.length - 1 ? 16 : 0, position: 'relative' }}>
-                        {/* Cercle statut */}
                         <div style={{
                           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                           background: newSt?.bg || '#F0F4FF',
@@ -440,7 +452,6 @@ export default function QuoteDetailPage() {
                         }}>
                           {STATUS_ICONS[h.new_status] || '📋'}
                         </div>
-                        {/* Contenu */}
                         <div style={{ flex: 1, paddingTop: 4 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                             {oldSt ? (
@@ -463,11 +474,17 @@ export default function QuoteDetailPage() {
                     )
                   })}
                 </div>
-              </div>
-            )}
+              ) : (
+                /* Premium mais pas encore d'historique */
+                <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>
+                  Aucun historique pour ce devis.
+                </div>
+              )}
+            </div>
+            {/* ── FIN COLONNE GAUCHE ── */}
           </div>
 
-          {/* Colonne droite — Récapitulatif */}
+          {/* ── COLONNE DROITE — Récapitulatif ── */}
           <div className="recap-col-d" style={{ minWidth: 0 }}>
             <div style={{ background: '#fff', border: '2px solid var(--blue)', borderRadius: 16, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--blue)', marginBottom: 14 }}>Récapitulatif</div>
@@ -532,7 +549,11 @@ export default function QuoteDetailPage() {
               </div>
             )}
           </div>
+          {/* ── FIN COLONNE DROITE ── */}
+
         </div>
+        {/* ── FIN GRID ── */}
+
       </div>
 
       {/* Modal catalogue */}

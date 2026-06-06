@@ -19,19 +19,10 @@ export default function SettingsPage() {
   const [logoPreview, setLogoPreview]     = useState<string | null>(null)
 
   const [form, setForm] = useState({
-    name:                  '',
-    email:                 '',
-    phone:                 '',
-    whatsapp_number:       '',
-    address:               '',
-    rccm:                  '',
-    tax_number:            '',
-    default_tax_rate:      18,
+    name: '', email: '', phone: '', whatsapp_number: '', address: '',
+    rccm: '', tax_number: '', default_tax_rate: 18,
     default_payment_terms: 'Paiement à la livraison',
-    default_currency:      'XOF',
-    devis_color:           '#FF6B35',
-    devis_footer:          '',
-    logo_url:              '',
+    default_currency: 'XOF', devis_color: '#FF6B35', devis_footer: '', logo_url: '',
   })
 
   useEffect(() => { loadData() }, [])
@@ -41,88 +32,61 @@ export default function SettingsPage() {
     if (!user) { router.push('/login'); return }
 
     const { data: member } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .single()
+      .from('organization_members').select('organization_id').eq('user_id', user.id).single()
 
     if (!member) { router.push('/login'); return }
     setOrgId(member.organization_id)
 
     const { data: orgData } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', member.organization_id)
-      .single()
+      .from('organizations').select('*').eq('id', member.organization_id).single()
 
     setOrg(orgData)
 
     if (orgData) {
       setForm({
-        name:                  orgData.name || '',
-        email:                 orgData.email || '',
-        phone:                 orgData.phone || '',
-        whatsapp_number:       orgData.whatsapp_number || '',
-        address:               orgData.address || '',
-        rccm:                  orgData.rccm || '',
-        tax_number:            orgData.tax_number || '',
-        default_tax_rate:      orgData.default_tax_rate || 18,
+        name: orgData.name || '', email: orgData.email || '', phone: orgData.phone || '',
+        whatsapp_number: orgData.whatsapp_number || '', address: orgData.address || '',
+        rccm: orgData.rccm || '', tax_number: orgData.tax_number || '',
+        default_tax_rate: orgData.default_tax_rate || 18,
         default_payment_terms: orgData.default_payment_terms || 'Paiement à la livraison',
-        default_currency:      orgData.default_currency || 'XOF',
-        devis_color:           orgData.devis_color || '#FF6B35',
-        devis_footer:          orgData.devis_footer || '',
-        logo_url:              orgData.logo_url || '',
+        default_currency: orgData.default_currency || 'XOF',
+        devis_color: orgData.devis_color || '#FF6B35',
+        devis_footer: orgData.devis_footer || '', logo_url: orgData.logo_url || '',
       })
       if (orgData.logo_url) setLogoPreview(orgData.logo_url)
     }
     setLoading(false)
   }
 
-  // ✅ Upload logo vers Supabase Storage
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Vérifications
-    if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image (PNG, JPG, SVG).')
-      return
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      alert('L\'image ne doit pas dépasser 2 MB.')
-      return
-    }
+    if (!file.type.startsWith('image/')) { alert('Veuillez sélectionner une image.'); return }
+    if (file.size > 2 * 1024 * 1024) { alert("L'image ne doit pas dépasser 2 MB."); return }
 
     setUploadingLogo(true)
-
     try {
-      const ext      = file.name.split('.').pop()
+      const ext = file.name.split('.').pop()
       const fileName = `logos/${orgId}.${ext}`
 
       const { error: uploadError } = await supabase.storage
-        .from('organization-assets')
-        .upload(fileName, file, { upsert: true })
+        .from('organization-assets').upload(fileName, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       const { data: urlData } = supabase.storage
-        .from('organization-assets')
-        .getPublicUrl(fileName)
+        .from('organization-assets').getPublicUrl(fileName)
 
       const publicUrl = urlData.publicUrl + '?v=' + Date.now()
-
       setLogoPreview(publicUrl)
       setForm(f => ({ ...f, logo_url: publicUrl }))
-
-    } catch (err) {
-      console.error('Upload error:', err)
-      alert('Erreur lors de l\'upload du logo. Vérifiez que le bucket Supabase existe.')
+    } catch {
+      alert("Erreur lors de l'upload du logo.")
     }
-
     setUploadingLogo(false)
   }
 
-  const removeLogo = async () => {
+  const removeLogo = () => {
     setLogoPreview(null)
     setForm(f => ({ ...f, logo_url: '' }))
   }
@@ -131,30 +95,25 @@ export default function SettingsPage() {
     if (!form.name.trim()) { alert("Le nom de l'entreprise est obligatoire."); return }
     setSaving(true)
 
-    const { error } = await supabase
-      .from('organizations')
-      .update({
-        name:                  form.name.trim(),
-        email:                 form.email.trim() || null,
-        phone:                 form.phone.trim() || null,
-        whatsapp_number:       form.whatsapp_number.trim() || null,
-        address:               form.address.trim() || null,
-        rccm:                  form.rccm.trim() || null,
-        tax_number:            form.tax_number.trim() || null,
-        default_tax_rate:      Number(form.default_tax_rate) || 18,
-        default_payment_terms: form.default_payment_terms.trim() || 'Paiement à la livraison',
-        default_currency:      form.default_currency,
-        devis_color:           form.devis_color,
-        devis_footer:          form.devis_footer.trim() || null,
-        logo_url:              form.logo_url || null,
-      })
-      .eq('id', orgId)
+    const { error } = await supabase.from('organizations').update({
+      name: form.name.trim(), email: form.email.trim() || null,
+      phone: form.phone.trim() || null, whatsapp_number: form.whatsapp_number.trim() || null,
+      address: form.address.trim() || null, rccm: form.rccm.trim() || null,
+      tax_number: form.tax_number.trim() || null,
+      default_tax_rate: Number(form.default_tax_rate) || 18,
+      default_payment_terms: form.default_payment_terms.trim() || 'Paiement à la livraison',
+      default_currency: form.default_currency, devis_color: form.devis_color,
+      devis_footer: form.devis_footer.trim() || null,
+      logo_url: form.logo_url || null,
+    }).eq('id', orgId)
 
     setSaving(false)
-    if (error) { alert('Erreur lors de la sauvegarde. Réessayez.'); return }
+    if (error) { alert('Erreur lors de la sauvegarde.'); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }
+
+  const isPremium = org?.plan === 'premium'
 
   if (loading) {
     return (
@@ -166,6 +125,20 @@ export default function SettingsPage() {
 
   const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }
 
+  // Bannière Premium réutilisable
+  const PremiumBanner = () => (
+    <div style={{ background: 'linear-gradient(135deg, #1E3A5F, #2D5A8E)', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      <div>
+        <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>⭐ Fonctionnalité Premium</div>
+        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 3 }}>Passez en Premium pour débloquer cette fonctionnalité.</div>
+      </div>
+      <button onClick={() => router.push('/subscription')}
+        style={{ padding: '8px 16px', background: 'var(--orange)', color: '#fff', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', border: 'none', whiteSpace: 'nowrap' }}>
+        Passer Premium →
+      </button>
+    </div>
+  )
+
   return (
     <AppLayout org={org}>
       <div style={{ padding: '24px 20px', maxWidth: 740 }}>
@@ -175,57 +148,47 @@ export default function SettingsPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Informations de votre entreprise</p>
         </div>
 
-        {/* ✅ Section Logo */}
+        {/* ✅ Section Logo — bloquée pour plan gratuit */}
         <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: 22, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: 'var(--blue)' }}>🖼️ Logo de l'entreprise</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: 'var(--blue)' }}>
+            🖼️ Logo de l'entreprise {!isPremium && <span style={{ fontSize: 11, background: 'var(--orange)', color: '#fff', padding: '2px 8px', borderRadius: 20, marginLeft: 8 }}>Premium</span>}
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            {/* Aperçu logo */}
-            <div style={{
-              width: 90, height: 90, borderRadius: 12,
-              border: '2px dashed var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: '#F8F9FA', overflow: 'hidden', flexShrink: 0,
-            }}>
-              {logoPreview ? (
-                <img src={logoPreview} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              ) : (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
-                  <div style={{ fontSize: 28, marginBottom: 4 }}>🏢</div>
-                  <div>Aucun logo</div>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
-                Votre logo apparaîtra sur tous vos devis PDF.<br />
-                <span style={{ fontSize: 11 }}>PNG, JPG ou SVG · Max 2 MB · Recommandé : 200×200px</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  style={{ display: 'none' }}
-                />
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploadingLogo}
-                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--orange)', color: '#fff', cursor: 'pointer', border: 'none' }}>
-                  {uploadingLogo ? '⏳ Upload...' : logoPreview ? '🔄 Changer le logo' : '📁 Choisir un logo'}
-                </button>
-                {logoPreview && (
-                  <button onClick={removeLogo}
-                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', border: '1px solid #FECACA' }}>
-                    🗑️ Supprimer
-                  </button>
+          {!isPremium ? (
+            <PremiumBanner />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+              <div style={{ width: 90, height: 90, borderRadius: 12, border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8F9FA', overflow: 'hidden', flexShrink: 0 }}>
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                    <div style={{ fontSize: 28, marginBottom: 4 }}>🏢</div>
+                    <div>Aucun logo</div>
+                  </div>
                 )}
               </div>
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.5 }}>
+                  Votre logo apparaîtra sur tous vos devis PDF.<br />
+                  <span style={{ fontSize: 11 }}>PNG, JPG ou SVG · Max 2 MB · Recommandé : 200×200px</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={uploadingLogo}
+                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--orange)', color: '#fff', cursor: 'pointer', border: 'none' }}>
+                    {uploadingLogo ? '⏳ Upload...' : logoPreview ? '🔄 Changer le logo' : '📁 Choisir un logo'}
+                  </button>
+                  {logoPreview && (
+                    <button onClick={removeLogo}
+                      style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', border: '1px solid #FECACA' }}>
+                      🗑️ Supprimer
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Entreprise */}
@@ -267,12 +230,11 @@ export default function SettingsPage() {
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={lbl}>Pied de page des devis PDF</label>
-              <textarea value={form.devis_footer} onChange={e => setForm(f => ({ ...f, devis_footer: e.target.value }))} placeholder="Ex: Merci de votre confiance. Devis valable 30 jours." rows={2} style={{ resize: 'vertical' }} />
+              <textarea value={form.devis_footer} onChange={e => setForm(f => ({ ...f, devis_footer: e.target.value }))} placeholder="Ex: Merci de votre confiance." rows={2} style={{ resize: 'vertical' }} />
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Ce texte apparaîtra en bas de chaque PDF généré.</div>
             </div>
           </div>
 
-          {/* Couleur */}
           <div style={{ marginTop: 16 }}>
             <label style={lbl}>Couleur principale des devis PDF</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
