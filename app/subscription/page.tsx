@@ -8,8 +8,8 @@ import type { Organization } from '@/lib/supabase'
 import AppLayout from '@/components/AppLayout'
 
 const PLANS = {
-  month: { price: 9500,  label: '/mois' },
-  year:  { price: 7600,  label: '/mois (annuel)' },
+  month: { price: 9500, label: '/mois' },
+  year:  { price: 7600, label: '/mois (annuel)' },
 }
 
 const FEATURES_FREE = [
@@ -44,24 +44,29 @@ const FAQS = [
 function SubscriptionContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const [org, setOrg]             = useState<Organization | null>(null)
-  const [orgId, setOrgId]         = useState('')
-  const [userEmail, setUserEmail] = useState('')
-  const [userName, setUserName]   = useState('')
-  const [loading, setLoading]     = useState(true)
-  const [period, setPeriod]       = useState<'month' | 'year'>('month')
-  const [openFaq, setOpenFaq]     = useState<number | null>(null)
-  const [paying, setPaying]       = useState(false)
+  const [org, setOrg]               = useState<Organization | null>(null)
+  const [orgId, setOrgId]           = useState('')
+  const [userEmail, setUserEmail]   = useState('')
+  const [userName, setUserName]     = useState('')
+  const [loading, setLoading]       = useState(true)
+  const [period, setPeriod]         = useState<'month' | 'year'>('month')
+  const [openFaq, setOpenFaq]       = useState<number | null>(null)
+  const [paying, setPaying]         = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [verifying, setVerifying]   = useState(false)
 
   useEffect(() => {
-    const status  = searchParams.get('status')
-    const oid     = searchParams.get('org_id')
-    const per     = searchParams.get('period') as 'month' | 'year' | null
+    const status        = searchParams.get('status')
+    const oid           = searchParams.get('org_id')
+    const per           = searchParams.get('period') as 'month' | 'year' | null
+    const transactionId = searchParams.get('transaction_id') // ID FedaPay
 
-    if (status === 'success' && oid) {
-      // ✅ Activer le plan Premium directement après retour paiement
-      activatePremium(oid, per || 'month')
+    if (status === 'success' && oid && transactionId) {
+      // ✅ Vérification CÔTÉ SERVEUR de la transaction avant d'activer
+      verifyAndActivate(transactionId, oid, per || 'month')
+    } else if (status === 'success' && oid && !transactionId) {
+      // Pas d'ID de transaction = on ne fait rien (sécurité)
+      setSuccessMsg('⚠️ Transaction non vérifiable. Contactez le support si vous avez payé.')
     } else if (status === 'cancelled') {
       setSuccessMsg('❌ Paiement annulé. Vous pouvez réessayer.')
     }
@@ -69,33 +74,40 @@ function SubscriptionContent() {
     loadData()
   }, [])
 
-  const activatePremium = async (oid: string, per: string) => {
-    setSuccessMsg('⏳ Activation de votre plan Premium en cours...')
+  /**
+   * Vérifie la transaction FedaPay côté serveur avant d'activer le plan.
+   * On appelle une route API Next.js qui elle-même contacte FedaPay.
+   * Jamais de mise à jour Supabase directement depuis le client sans vérification.
+   */
+  const verifyAndActivate = async (transactionId: string, oid: string, per: string) => {
+    setVerifying(true)
+    setSuccessMsg('⏳ Vérification du paiement en cours...')
 
-    const now = new Date()
-    const expiresAt = new Date(now)
-    if (per === 'year') {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-    } else {
-      expiresAt.setMonth(expiresAt.getMonth() + 1)
-    }
-
-    const { error } = await supabase
-      .from('organizations')
-      .update({
-        plan:             'premium',
-        plan_expires_at:  expiresAt.toISOString(),
-        last_payment_at:  now.toISOString(),
+    try {
+      const res = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction_id: transactionId, org_id: oid, period: per }),
       })
-      .eq('id', oid)
 
-    if (error) {
-      console.error('Erreur activation premium:', error)
-      setSuccessMsg('⚠️ Paiement reçu mais erreur activation. Contactez le support.')
-    } else {
-      setSuccessMsg('🎉 Plan Premium activé ! Devis illimités, IA avancée — tout est débloqué.')
-      // Recharger les données pour afficher le nouveau plan
-      await loadData()
+      const data = await res.json()
+
+      if (!res.ok) {
+        setSuccessMsg(`⚠️ ${data.error || 'Erreur de vérification. Contactez le support.'}`)
+        return
+      }
+
+      if (data.activated) {
+        setSuccessMsg('🎉 Plan Premium activé ! Devis illimités, IA avancée — tout est débloqué.')
+        await loadData()
+      } else {
+        // Transaction trouvée mais pas approuvée (annulée, en attente, etc.)
+        setSuccessMsg(`❌ Paiement non confirmé (statut : ${data.status || 'inconnu'}). Réessayez ou contactez le support.`)
+      }
+    } catch {
+      setSuccessMsg('⚠️ Erreur réseau lors de la vérification. Contactez le support si vous avez payé.')
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -153,7 +165,6 @@ function SubscriptionContent() {
       }
 
       window.location.href = data.payment_url
-
     } catch {
       alert('Erreur réseau. Réessayez.')
       setPaying(false)
@@ -181,7 +192,7 @@ function SubscriptionContent() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>{org?.name}</p>
         </div>
 
-        {/* Message succès / erreur */}
+        {/* Message succès / erreur / vérification */}
         {successMsg && (
           <div style={{
             background: successMsg.startsWith('🎉') ? '#ECFDF5' : successMsg.startsWith('❌') ? '#FEF2F2' : '#FFF9F6',
@@ -189,7 +200,11 @@ function SubscriptionContent() {
             borderRadius: 12, padding: '16px 18px', marginBottom: 20,
             fontSize: 14, fontWeight: 600,
             color: successMsg.startsWith('🎉') ? '#065F46' : successMsg.startsWith('❌') ? '#DC2626' : 'var(--orange)',
+            display: 'flex', alignItems: 'center', gap: 10,
           }}>
+            {verifying && (
+              <div style={{ width: 16, height: 16, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+            )}
             {successMsg}
           </div>
         )}
@@ -253,8 +268,8 @@ function SubscriptionContent() {
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: period === 'year' ? 4 : 16 }}>{currentPrice.label}</div>
             {period === 'year' && <div style={{ color: 'var(--orange)', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>Économisez {formatAmount(saving, 'XOF')} 🎁</div>}
 
-            <button onClick={handlePay} disabled={paying || org?.plan === 'premium'}
-              style={{ width: '100%', padding: '11px', borderRadius: 9, fontSize: 13, fontWeight: 800, background: org?.plan === 'premium' ? 'rgba(255,255,255,0.2)' : 'var(--orange)', color: '#fff', border: 'none', cursor: paying || org?.plan === 'premium' ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <button onClick={handlePay} disabled={paying || verifying || org?.plan === 'premium'}
+              style={{ width: '100%', padding: '11px', borderRadius: 9, fontSize: 13, fontWeight: 800, background: org?.plan === 'premium' ? 'rgba(255,255,255,0.2)' : 'var(--orange)', color: '#fff', border: 'none', cursor: paying || verifying || org?.plan === 'premium' ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               {paying ? (
                 <><div style={{ width: 16, height: 16, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />Redirection...</>
               ) : org?.plan === 'premium' ? '✅ Plan actuel' : `Passer Premium → ${formatAmount(period === 'year' ? 7600 * 12 : 9500, 'XOF')}`}
@@ -301,11 +316,12 @@ function SubscriptionContent() {
           <div style={{ fontSize: 32, marginBottom: 8 }}>🛡️</div>
           <h3 style={{ color: '#fff', fontWeight: 800, fontSize: 17, marginBottom: 7 }}>Satisfait ou remboursé 7 jours</h3>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 18 }}>Essayez Premium sans risque.</p>
-          <button onClick={handlePay} disabled={paying || org?.plan === 'premium'}
+          <button onClick={handlePay} disabled={paying || verifying || org?.plan === 'premium'}
             style={{ background: '#fff', color: 'var(--orange)', fontWeight: 800, fontSize: 14, padding: '12px 26px', borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             {org?.plan === 'premium' ? '✅ Déjà Premium' : 'Essayer Premium maintenant →'}
           </button>
         </div>
+
       </div>
     </AppLayout>
   )
