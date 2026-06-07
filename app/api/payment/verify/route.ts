@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
         },
       }
     )
+     const rawText = await fedaRes.text()
+     console.log('FedaPay status:', fedaRes.status)
+     console.log('FedaPay response:', rawText)
 
     if (!fedaRes.ok) {
       console.error('FedaPay API error:', fedaRes.status, await fedaRes.text())
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const fedaData = await fedaRes.json()
+    const fedaData = JSON.parse(rawText)
     const transaction = fedaData.v1 // structure FedaPay : { v1: { ... } }
 
     const transactionStatus = transaction?.status
