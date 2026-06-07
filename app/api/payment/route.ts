@@ -20,9 +20,9 @@ export async function POST(req: NextRequest) {
         amount,
         currency:    { iso: 'XOF' },
         // FedaPay ajoute automatiquement ?id={transaction_id}&status=approved à cette URL
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=success&org_id=${org_id}&period=${period}`,
+        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=fedapay&org_id=${org_id}&period=${period}`,
         // URL de retour quand l'utilisateur annule
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?status=cancelled`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=cancelled`,
         customer: {
           email,
           lastname: name || 'Client',

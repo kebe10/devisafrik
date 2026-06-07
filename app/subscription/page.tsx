@@ -56,24 +56,21 @@ function SubscriptionContent() {
   const [verifying, setVerifying]   = useState(false)
 
   useEffect(() => {
-  console.log('URL complète:', window.location.href)
-  console.log('Tous les params:', Object.fromEntries(searchParams.entries()))
-  const status        = searchParams.get('status')
+  const source        = searchParams.get('source')
   const oid           = searchParams.get('org_id')
   const per           = searchParams.get('period') as 'month' | 'year' | null
-  const transactionId = searchParams.get('transaction_id')
+  const transactionId = searchParams.get('id')        // FedaPay ajoute ?id=452708
+  const fedaStatus    = searchParams.get('status')    // FedaPay ajoute ?status=approved
 
-  if (status === 'cancelled') {
-    // ✅ Annulation explicite — message clair, pas de support
+  if (source === 'cancelled') {
     setSuccessMsg('❌ Paiement annulé. Vous pouvez réessayer quand vous voulez.')
 
-  } else if (status === 'success' && oid && transactionId) {
-    // ✅ Retour succès avec ID → vérification réelle
+  } else if (source === 'fedapay' && oid && transactionId && fedaStatus === 'approved') {
+    // ✅ FedaPay a confirmé approved + on a l'ID → vérification serveur
     verifyAndActivate(transactionId, oid, per || 'month')
 
-  } else if (status === 'success' && oid && !transactionId) {
-    // ⚠️ FedaPay a redirigé en "success" mais sans transaction_id
-    // → probablement une annulation ou un retour en arrière navigateur
+  } else if (source === 'fedapay' && fedaStatus !== 'approved') {
+    // FedaPay a redirigé mais statut pas approved
     setSuccessMsg('❌ Paiement non finalisé. Réessayez ou contactez le support si vous avez été débité.')
   }
 
