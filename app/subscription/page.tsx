@@ -56,23 +56,27 @@ function SubscriptionContent() {
   const [verifying, setVerifying]   = useState(false)
 
   useEffect(() => {
-    const status        = searchParams.get('status')
-    const oid           = searchParams.get('org_id')
-    const per           = searchParams.get('period') as 'month' | 'year' | null
-    const transactionId = searchParams.get('transaction_id') // ID FedaPay
+  const status        = searchParams.get('status')
+  const oid           = searchParams.get('org_id')
+  const per           = searchParams.get('period') as 'month' | 'year' | null
+  const transactionId = searchParams.get('transaction_id')
 
-    if (status === 'success' && oid && transactionId) {
-      // ✅ Vérification CÔTÉ SERVEUR de la transaction avant d'activer
-      verifyAndActivate(transactionId, oid, per || 'month')
-    } else if (status === 'success' && oid && !transactionId) {
-      // Pas d'ID de transaction = on ne fait rien (sécurité)
-      setSuccessMsg('⚠️ Transaction non vérifiable. Contactez le support si vous avez payé.')
-    } else if (status === 'cancelled') {
-      setSuccessMsg('❌ Paiement annulé. Vous pouvez réessayer.')
-    }
+  if (status === 'cancelled') {
+    // ✅ Annulation explicite — message clair, pas de support
+    setSuccessMsg('❌ Paiement annulé. Vous pouvez réessayer quand vous voulez.')
 
-    loadData()
-  }, [])
+  } else if (status === 'success' && oid && transactionId) {
+    // ✅ Retour succès avec ID → vérification réelle
+    verifyAndActivate(transactionId, oid, per || 'month')
+
+  } else if (status === 'success' && oid && !transactionId) {
+    // ⚠️ FedaPay a redirigé en "success" mais sans transaction_id
+    // → probablement une annulation ou un retour en arrière navigateur
+    setSuccessMsg('❌ Paiement non finalisé. Réessayez ou contactez le support si vous avez été débité.')
+  }
+
+  loadData()
+}, [])
 
   /**
    * Vérifie la transaction FedaPay côté serveur avant d'activer le plan.
