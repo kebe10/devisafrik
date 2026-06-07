@@ -56,6 +56,8 @@ function SubscriptionContent() {
   const [verifying, setVerifying]   = useState(false)
 
   useEffect(() => {
+  console.log('URL complète:', window.location.href)
+  console.log('Tous les params:', Object.fromEntries(searchParams.entries()))
   const status        = searchParams.get('status')
   const oid           = searchParams.get('org_id')
   const per           = searchParams.get('period') as 'month' | 'year' | null
