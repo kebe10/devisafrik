@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         amount,
         currency,
         starts_at:         now.toISOString(),
-        expire_at:         expiresAt.toISOString(),
+        expires_at:         expiresAt.toISOString(),
       })
 
     if (subError) {
