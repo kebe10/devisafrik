@@ -24,22 +24,23 @@ export default function NewQuotePage() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving]   = useState(false)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [pdfReady, setPdfReady]   = useState(false)
+  const [aiLoading, setAiLoading]     = useState(false)
+  const [pdfReady, setPdfReady]       = useState(false)
   const [showClients, setShowClients] = useState(false)
-  const [aiText, setAiText]   = useState('')
-  const [saved, setSaved]         = useState(false)
+  const [aiText, setAiText]           = useState('')
+  const [saved, setSaved]             = useState(false)
   const [showCatalogue, setShowCatalogue] = useState(false)
   const [catalogue, setCatalogue]         = useState<any[]>([])
   const [catSearch, setCatSearch]         = useState('')
+  const [quotaExceeded, setQuotaExceeded] = useState(false) // ✅ modale quota
 
-  const [title, setTitle]           = useState('')
+  const [title, setTitle]               = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [status, setStatus]         = useState('draft')
-  const [taxRate, setTaxRate]       = useState(18)
-  const [discount, setDiscount]     = useState(0)
+  const [status, setStatus]             = useState('draft')
+  const [taxRate, setTaxRate]           = useState(18)
+  const [discount, setDiscount]         = useState(0)
   const [paymentTerms, setPaymentTerms] = useState('Paiement à la livraison')
-  const [notes, setNotes]           = useState('')
+  const [notes, setNotes]               = useState('')
   const [items, setItems] = useState<Item[]>([
     { id: 1, description: '', quantity: 1, unit: 'forfait', unit_price: 0 }
   ])
@@ -71,13 +72,13 @@ export default function NewQuotePage() {
     setOrg(orgData)
     setClients(clientsData || [])
 
-    // Charger le catalogue de services
     const { data: servicesData } = await supabase
       .from('services')
       .select('*')
       .eq('organization_id', member.organization_id)
       .order('name')
     setCatalogue(servicesData || [])
+
     if (orgData) {
       setTaxRate(orgData.default_tax_rate || 18)
       setPaymentTerms(orgData.default_payment_terms || 'Paiement à la livraison')
@@ -117,7 +118,7 @@ export default function NewQuotePage() {
       if (!res.ok) { alert(data.error || 'Erreur. Réessayez.'); setAiLoading(false); return }
       if (data.title) setTitle(data.title)
       if (data.items) setItems(data.items.map((it: any, idx: number) => ({
-        id: Date.now() + idx,
+        id:          Date.now() + idx,
         description: String(it.description || ''),
         quantity:    Number(it.quantity) || 1,
         unit:        String(it.unit || 'forfait'),
@@ -131,43 +132,54 @@ export default function NewQuotePage() {
     setAiLoading(false)
   }
 
+  // ✅ saveQuote passe par /api/quotes pour que le quota soit vérifié côté serveur
   const saveQuote = async (redirect = true) => {
     if (!orgId) return
     setSaving(true)
     try {
-      const { data: quote, error } = await supabase
-        .from('quotes')
-        .insert({
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           organization_id: orgId,
           client_id:       selectedClient?.id || null,
-          quote_number:    quoteNumber,
           title:           title || 'Nouveau devis',
-          status, tax_rate: taxRate, discount_amount: discount,
-          subtotal, tax_amount: taxAmount, total,
-          payment_terms: paymentTerms, validity_days: 30, notes,
-        })
-        .select().single()
+          status,
+          tax_rate:        taxRate,
+          discount_amount: discount,
+          payment_terms:   paymentTerms,
+          validity_days:   30,
+          notes,
+          items: items.filter(i => i.description).map(i => ({
+            description: i.description,
+            quantity:    i.quantity,
+            unit:        i.unit,
+            unit_price:  i.unit_price,
+          })),
+        }),
+      })
 
-      if (error) {
-        alert(error.message?.includes('QUOTE_LIMIT_REACHED')
-          ? '⚠️ Limite de 3 devis/mois atteinte. Passez en Premium.'
-          : 'Erreur lors de la sauvegarde.')
+      const data = await res.json()
+
+      // ✅ Quota dépassé → modale Premium
+      if (res.status === 403 && data.error === 'QUOTA_EXCEEDED') {
+        setQuotaExceeded(true)
         setSaving(false)
         return
       }
 
-      if (items.length > 0) {
-        await supabase.from('quote_items').insert(
-          items.filter(i => i.description).map((item, idx) => ({
-            quote_id: quote.id, description: item.description,
-            quantity: item.quantity, unit: item.unit,
-            unit_price: item.unit_price, total: item.quantity * item.unit_price, sort_order: idx,
-          }))
-        )
+      if (!res.ok) {
+        alert(data.error || 'Erreur lors de la sauvegarde.')
+        setSaving(false)
+        return
       }
+
       setSaved(true)
       if (redirect) router.push('/quotes')
-    } catch { alert('Erreur réseau. Réessayez.') }
+
+    } catch {
+      alert('Erreur réseau. Réessayez.')
+    }
     setSaving(false)
   }
 
@@ -220,7 +232,6 @@ export default function NewQuotePage() {
 
   return (
     <AppLayout org={org}>
-      {/* ✅ overflowX hidden pour empêcher le décalage horizontal sur mobile */}
       <div style={{ padding: '16px 16px 100px', overflowX: 'hidden', width: '100%', boxSizing: 'border-box' }}>
 
         {/* Header */}
@@ -254,7 +265,7 @@ export default function NewQuotePage() {
 
         <div className="quote-new-grid">
 
-          {/* Colonne gauche */}
+          {/* ── COLONNE GAUCHE ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
 
             {/* IA */}
@@ -356,7 +367,7 @@ export default function NewQuotePage() {
                 ))}
               </div>
 
-              {/* Lignes mobile — cards */}
+              {/* Lignes mobile */}
               <div className="items-mobile">
                 {items.map((item, idx) => (
                   <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)', boxSizing: 'border-box' }}>
@@ -399,7 +410,6 @@ export default function NewQuotePage() {
                 ➕ Ajouter une ligne
               </button>
 
-              {/* ✅ Bouton catalogue */}
               {catalogue.length > 0 && (
                 <button onClick={() => setShowCatalogue(true)}
                   style={{ padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#F0F4FF', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: 'pointer', marginTop: 8, width: '100%', boxSizing: 'border-box' }}>
@@ -419,9 +429,11 @@ export default function NewQuotePage() {
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Informations supplémentaires..." style={{ resize: 'vertical' }} />
               </div>
             </div>
-          </div>
 
-          {/* Colonne droite — Récapitulatif */}
+          </div>
+          {/* ── FIN COLONNE GAUCHE ── */}
+
+          {/* ── COLONNE DROITE — Récapitulatif ── */}
           <div className="recap-col" style={{ minWidth: 0 }}>
             <div style={{ background: '#fff', border: '2px solid var(--blue)', borderRadius: 16, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--blue)', marginBottom: 14 }}>Récapitulatif</div>
@@ -486,10 +498,12 @@ export default function NewQuotePage() {
               </div>
             )}
           </div>
+          {/* ── FIN COLONNE DROITE ── */}
+
         </div>
       </div>
 
-      {/* ✅ Modal catalogue de services */}
+      {/* ── Modal catalogue ── */}
       {showCatalogue && (
         <div onClick={() => setShowCatalogue(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -500,25 +514,18 @@ export default function NewQuotePage() {
               <button onClick={() => setShowCatalogue(false)}
                 style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
             </div>
-            <input placeholder="🔍 Rechercher..." value={catSearch} onChange={e => setCatSearch(e.target.value)}
-              style={{ marginBottom: 12 }} />
+            <input placeholder="🔍 Rechercher..." value={catSearch} onChange={e => setCatSearch(e.target.value)} style={{ marginBottom: 12 }} />
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {catalogue
                 .filter(s => !catSearch || s.name.toLowerCase().includes(catSearch.toLowerCase()))
                 .map(s => (
                   <div key={s.id}
                     onClick={() => {
-                      setItems(prev => [...prev, {
-                        id:          Date.now(),
-                        description: s.name,
-                        quantity:    1,
-                        unit:        s.unit,
-                        unit_price:  s.unit_price,
-                      }])
+                      setItems(prev => [...prev, { id: Date.now(), description: s.name, quantity: 1, unit: s.unit, unit_price: s.unit_price }])
                       setShowCatalogue(false)
                       setCatSearch('')
                     }}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 10, marginBottom: 8, border: '1.5px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', borderRadius: 10, marginBottom: 8, border: '1.5px solid var(--border)', cursor: 'pointer', background: '#fff' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--orange)'; e.currentTarget.style.background = '#FFF9F6' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = '#fff' }}
                   >
@@ -540,6 +547,32 @@ export default function NewQuotePage() {
         </div>
       )}
 
+      {/* ── Modale quota dépassé ── */}
+      {quotaExceeded && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 18, padding: 32, width: '100%', maxWidth: 400, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🚫</div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--blue)', marginBottom: 8 }}>
+              Limite atteinte
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
+              Vous avez atteint la limite de <strong>3 devis par mois</strong> du plan gratuit.<br />
+              Passez en Premium pour créer des devis illimités.
+            </div>
+            <button
+              onClick={() => router.push('/subscription')}
+              style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', border: 'none', cursor: 'pointer', marginBottom: 10 }}>
+              ⭐ Passer Premium →
+            </button>
+            <button
+              onClick={() => { setQuotaExceeded(false); router.push('/quotes') }}
+              style={{ width: '100%', padding: '11px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
+              Retour à mes devis
+            </button>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .quote-new-grid {
           display: grid;
@@ -554,31 +587,13 @@ export default function NewQuotePage() {
         .recap-col { position: sticky; top: 20px; }
 
         @media (max-width: 768px) {
-          .quote-new-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .recap-col {
-            position: relative !important;
-            top: auto !important;
-            order: -1;
-          }
+          .quote-new-grid { grid-template-columns: 1fr !important; }
+          .recap-col { position: relative !important; top: auto !important; order: -1; }
           .items-mobile { display: block !important; }
           .items-desktop { display: none !important; }
           .items-header { display: none !important; }
-
-          /* ✅ Empêcher tout débordement horizontal après génération IA */
-          .quote-new-grid,
-          .quote-new-grid * {
-            max-width: 100% !important;
-            box-sizing: border-box !important;
-          }
-          .items-mobile input,
-          .items-mobile select,
-          .items-mobile textarea {
-            width: 100% !important;
-            min-width: 0 !important;
-            max-width: 100% !important;
-          }
+          .quote-new-grid, .quote-new-grid * { max-width: 100% !important; box-sizing: border-box !important; }
+          .items-mobile input, .items-mobile select, .items-mobile textarea { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
         }
       `}</style>
     </AppLayout>

@@ -8,6 +8,13 @@ const createServerClient = () =>
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
+// Client admin pour lire le plan sans restriction RLS
+const createAdminClient = () =>
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
 // ── GET — Liste des devis ──────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
@@ -41,8 +48,9 @@ export async function GET(req: NextRequest) {
 // ── POST — Créer un devis ──────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerClient()
-    const body = await req.json()
+    const supabase      = createServerClient()
+    const supabaseAdmin = createAdminClient()
+    const body          = await req.json()
     const {
       organization_id, client_id, title, status = 'draft',
       currency = 'XOF', tax_rate = 18, discount_amount = 0,
@@ -51,6 +59,36 @@ export async function POST(req: NextRequest) {
 
     if (!organization_id) return NextResponse.json({ error: 'organization_id requis' }, { status: 400 })
     if (!items.length)    return NextResponse.json({ error: 'Au moins une ligne requise' }, { status: 400 })
+
+    // ── Vérification du quota plan gratuit ──────────────────────
+    const { data: org } = await supabaseAdmin
+      .from('organizations')
+      .select('plan')
+      .eq('id', organization_id)
+      .single()
+
+    if (!org) return NextResponse.json({ error: 'Organisation introuvable' }, { status: 404 })
+
+    if (org.plan !== 'premium') {
+      // Compter les devis créés ce mois-ci
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { count } = await supabaseAdmin
+        .from('quotes')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', organization_id)
+        .gte('created_at', startOfMonth.toISOString())
+
+      if ((count ?? 0) >= 3) {
+        return NextResponse.json(
+          { error: 'QUOTA_EXCEEDED', message: 'Limite de 3 devis/mois atteinte. Passez en Premium pour créer des devis illimités.' },
+          { status: 403 }
+        )
+      }
+    }
+    // ────────────────────────────────────────────────────────────
 
     const subtotal   = items.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0)
     const tax_amount = subtotal * (tax_rate / 100)
@@ -72,15 +110,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    if (quoteError) {
-      if (quoteError.message?.includes('QUOTE_LIMIT_REACHED')) {
-        return NextResponse.json(
-          { error: 'QUOTA_EXCEEDED', message: 'Limite de 3 devis/mois atteinte.' },
-          { status: 403 }
-        )
-      }
-      throw quoteError
-    }
+    if (quoteError) throw quoteError
 
     if (items.length > 0) {
       await supabase.from('quote_items').insert(
