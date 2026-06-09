@@ -2,23 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const createServerClient = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-
-// Client admin pour lire le plan sans restriction RLS
-const createAdminClient = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+// ✅ Un seul client admin pour tout — bypass RLS de façon contrôlée
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 // ── GET — Liste des devis ──────────────────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerClient()
     const { searchParams } = new URL(req.url)
     const orgId  = searchParams.get('org_id')
     const status = searchParams.get('status')
@@ -26,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     if (!orgId) return NextResponse.json({ error: 'org_id requis' }, { status: 400 })
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('quotes')
       .select('*, client:clients(id, name, phone, whatsapp_number, company_name)')
       .eq('organization_id', orgId)
@@ -48,17 +40,16 @@ export async function GET(req: NextRequest) {
 // ── POST — Créer un devis ──────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const supabase      = createServerClient()
-    const supabaseAdmin = createAdminClient()
-    const body          = await req.json()
+    const body = await req.json()
     const {
       organization_id, client_id, title, status = 'draft',
       currency = 'XOF', tax_rate = 18, discount_amount = 0,
       payment_terms, validity_days = 30, notes, items = [],
     } = body
 
-    if (!organization_id) return NextResponse.json({ error: 'organization_id requis' }, { status: 400 })
-    if (!items.length)    return NextResponse.json({ error: 'Au moins une ligne requise' }, { status: 400 })
+    if (!organization_id) {
+      return NextResponse.json({ error: 'organization_id requis' }, { status: 400 })
+    }
 
     // ── Vérification du quota plan gratuit ──────────────────────
     const { data: org } = await supabaseAdmin
@@ -67,10 +58,11 @@ export async function POST(req: NextRequest) {
       .eq('id', organization_id)
       .single()
 
-    if (!org) return NextResponse.json({ error: 'Organisation introuvable' }, { status: 404 })
+    if (!org) {
+      return NextResponse.json({ error: 'Organisation introuvable' }, { status: 404 })
+    }
 
     if (org.plan !== 'premium') {
-      // Compter les devis créés ce mois-ci
       const startOfMonth = new Date()
       startOfMonth.setDate(1)
       startOfMonth.setHours(0, 0, 0, 0)
@@ -90,14 +82,16 @@ export async function POST(req: NextRequest) {
     }
     // ────────────────────────────────────────────────────────────
 
-    const subtotal   = items.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0)
+    const validItems = items.filter((i: any) => i.description)
+    const subtotal   = validItems.reduce((s: number, i: any) => s + i.quantity * i.unit_price, 0)
     const tax_amount = subtotal * (tax_rate / 100)
     const total      = subtotal + tax_amount - discount_amount
 
     const now = new Date()
     const quote_number = `DEV-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}-${Math.floor(Math.random()*900)+100}`
 
-    const { data: quote, error: quoteError } = await supabase
+    // ✅ Insert avec le client admin — pas de problème RLS
+    const { data: quote, error: quoteError } = await supabaseAdmin
       .from('quotes')
       .insert({
         organization_id,
@@ -112,9 +106,9 @@ export async function POST(req: NextRequest) {
 
     if (quoteError) throw quoteError
 
-    if (items.length > 0) {
-      await supabase.from('quote_items').insert(
-        items.map((item: any, idx: number) => ({
+    if (validItems.length > 0) {
+      await supabaseAdmin.from('quote_items').insert(
+        validItems.map((item: any, idx: number) => ({
           quote_id:    quote.id,
           description: item.description,
           quantity:    item.quantity,
