@@ -11,11 +11,12 @@ export default function QuotesPage() {
   const router = useRouter()
   const [org, setOrg]       = useState<Organization | null>(null)
   const [quotes, setQuotes] = useState<Quote[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch]   = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [orgId, setOrgId]     = useState('')
-  const [duplicating, setDuplicating] = useState<string | null>(null)
+  const [orgId, setOrgId]       = useState('')
+  const [duplicating, setDuplicating]   = useState<string | null>(null)
+  const [quotaExceeded, setQuotaExceeded] = useState(false) // ✅ modale quota
 
   useEffect(() => { loadData() }, [])
 
@@ -74,58 +75,63 @@ export default function QuotesPage() {
     setQuotes(prev => prev.filter(q => q.id !== id))
   }
 
+  // ✅ Duplication passe par /api/quotes pour vérifier le quota
   const duplicateQuote = async (q: Quote, e: React.MouseEvent) => {
     e.stopPropagation()
     if (duplicating) return
     setDuplicating(q.id)
+
     try {
-      const now = new Date()
-      const num = `DEV-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}-${Math.floor(Math.random()*900)+100}`
-
-      const { data: newQuote, error } = await supabase
-        .from('quotes')
-        .insert({
-          organization_id: q.organization_id,
-          client_id:       q.client_id,
-          quote_number:    num,
-          title:           (q.title || 'Devis') + ' (copie)',
-          status:          'draft',
-          currency:        q.currency,
-          tax_rate:        q.tax_rate,
-          discount_amount: q.discount_amount,
-          subtotal:        q.subtotal,
-          tax_amount:      q.tax_amount,
-          total:           q.total,
-          payment_terms:   q.payment_terms,
-          validity_days:   q.validity_days,
-          notes:           q.notes,
-        })
-        .select('*, client:clients(name, phone, whatsapp_number)')
-        .single()
-
-      if (error) throw error
-
+      // 1. Récupérer les items du devis original
       const { data: items } = await supabase
         .from('quote_items')
         .select('*')
         .eq('quote_id', q.id)
+        .order('sort_order')
 
-      if (items && items.length > 0) {
-        await supabase.from('quote_items').insert(
-          items.map(i => ({
-            quote_id:    newQuote.id,
+      // 2. Créer le nouveau devis via l'API (quota vérifié côté serveur)
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organization_id: q.organization_id,
+          client_id:       q.client_id || null,
+          title:           (q.title || 'Devis') + ' (copie)',
+          status:          'draft',
+          tax_rate:        q.tax_rate,
+          discount_amount: q.discount_amount,
+          payment_terms:   q.payment_terms,
+          validity_days:   q.validity_days,
+          notes:           q.notes,
+          items: (items || []).map(i => ({
             description: i.description,
             quantity:    i.quantity,
             unit:        i.unit,
             unit_price:  i.unit_price,
-            total:       i.total,
-            sort_order:  i.sort_order,
-          }))
-        )
+          })),
+        }),
+      })
+
+      const data = await res.json()
+
+      // ✅ Quota dépassé → modale Premium
+      if (res.status === 403 && data.error === 'QUOTA_EXCEEDED') {
+        setQuotaExceeded(true)
+        setDuplicating(null)
+        return
       }
-      setQuotes(prev => [newQuote, ...prev])
+
+      if (!res.ok) {
+        alert(data.error || 'Erreur lors de la duplication.')
+        setDuplicating(null)
+        return
+      }
+
+      // 3. Recharger la liste pour afficher le nouveau devis
+      await loadQuotes(orgId, search, filterStatus)
+
     } catch {
-      alert('Erreur lors de la duplication.')
+      alert('Erreur réseau. Réessayez.')
     }
     setDuplicating(null)
   }
@@ -228,6 +234,33 @@ export default function QuotesPage() {
           )}
         </div>
       </div>
+
+      {/* ── Modale quota dépassé ── */}
+      {quotaExceeded && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 18, padding: 32, width: '100%', maxWidth: 400, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>🚫</div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--blue)', marginBottom: 8 }}>
+              Limite atteinte
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
+              Vous avez atteint la limite de <strong>3 devis par mois</strong> du plan gratuit.<br />
+              Passez en Premium pour créer des devis illimités.
+            </div>
+            <button
+              onClick={() => router.push('/subscription')}
+              style={{ width: '100%', padding: '13px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', border: 'none', cursor: 'pointer', marginBottom: 10 }}>
+              ⭐ Passer Premium →
+            </button>
+            <button
+              onClick={() => setQuotaExceeded(false)}
+              style={{ width: '100%', padding: '11px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
     </AppLayout>
   )
 }
