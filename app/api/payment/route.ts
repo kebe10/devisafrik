@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('FedaPay key prefix:', process.env.FEDAPAY_SECRET_KEY?.substring(0, 15))
     const { amount, period, org_id, email, name } = await req.json()
 
     if (!amount || !org_id || !email) {
