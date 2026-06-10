@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    
     const { amount, period, org_id, email, name } = await req.json()
 
     if (!amount || !org_id || !email) {
@@ -17,18 +16,15 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${process.env.FEDAPAY_SECRET_KEY}`,
       },
       body: JSON.stringify({
-        description: `DevisAfrik Premium - ${period === 'year' ? 'Annuel' : 'Mensuel'}`,
+        description:  `DevisAfrik Premium - ${period === 'year' ? 'Annuel' : 'Mensuel'}`,
         amount,
-        currency:    { iso: 'XOF' },
-        // FedaPay ajoute automatiquement ?id={transaction_id}&status=approved à cette URL
+        currency:     { iso: 'XOF' },
         callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=fedapay&org_id=${org_id}&period=${period}`,
-        // URL de retour quand l'utilisateur annule
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=cancelled`,
+        cancel_url:   `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=cancelled`,
         customer: {
-        email,
-        firstname: name?.split(' ')[0] || 'Client',
-        lastname:  name?.split(' ').slice(1).join(' ') || name || 'Client',
-       },
+          email,
+          firstname: name?.split(' ')[0] || 'Client',
+          lastname:  name?.split(' ').slice(1).join(' ') || name || 'Client',
         },
         metadata: { org_id, period },
       }),
