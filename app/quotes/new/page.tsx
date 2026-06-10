@@ -133,8 +133,8 @@ export default function NewQuotePage() {
   }
 
   // ✅ saveQuote passe par /api/quotes pour que le quota soit vérifié côté serveur
-  const saveQuote = async (redirect = true) => {
-    if (!orgId) return
+  const saveQuote = async (redirect = true): Promise<boolean> => {
+  if (!orgId) return false
     setSaving(true)
     try {
       const res = await fetch('/api/quotes', {
@@ -165,13 +165,13 @@ export default function NewQuotePage() {
       if (res.status === 403 && data.error === 'QUOTA_EXCEEDED') {
         setQuotaExceeded(true)
         setSaving(false)
-        return
+        return true 
       }
 
       if (!res.ok) {
         alert(data.error || 'Erreur lors de la sauvegarde.')
         setSaving(false)
-        return
+        return true 
       }
 
       setSaved(true)
@@ -184,36 +184,38 @@ export default function NewQuotePage() {
   }
 
   const handleGeneratePDF = async () => {
-    try {
-      const { generateQuotePDF } = await import('@/lib/pdf')
-      generateQuotePDF({
-        quote_number: quoteNumber, title: title || 'Devis', status,
-        tax_rate: taxRate, discount_amount: discount, subtotal,
-        tax_amount: taxAmount, total, payment_terms: paymentTerms,
-        validity_days: 30, notes, created_at: new Date().toISOString(),
-        client: selectedClient ? {
-          name: selectedClient.name, phone: selectedClient.phone,
-          whatsapp_number: selectedClient.whatsapp_number,
-          company_name: selectedClient.company_name,
-        } : undefined,
-        items: items.filter(i => i.description).map(i => ({
-          description: i.description, quantity: i.quantity, unit: i.unit,
-          unit_price: i.unit_price, total: i.quantity * i.unit_price,
-        })),
-        organization: {
-          name: org?.name || 'Mon Entreprise', phone: org?.phone,
-          email: org?.email, address: org?.address, rccm: org?.rccm,
-          devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
-          currency: org?.default_currency || 'XOF',
-        },
-      })
-      setPdfReady(true)
-      await saveQuote(false)
-    } catch { alert('Erreur lors de la génération du PDF.') }
-  }
+  const ok = await saveQuote(false)
+  if (!ok) return
+  try {
+    const { generateQuotePDF } = await import('@/lib/pdf')
+    generateQuotePDF({
+      quote_number: quoteNumber, title: title || 'Devis', status,
+      tax_rate: taxRate, discount_amount: discount, subtotal,
+      tax_amount: taxAmount, total, payment_terms: paymentTerms,
+      validity_days: 30, notes, created_at: new Date().toISOString(),
+      client: selectedClient ? {
+        name: selectedClient.name, phone: selectedClient.phone,
+        whatsapp_number: selectedClient.whatsapp_number,
+        company_name: selectedClient.company_name,
+      } : undefined,
+      items: items.filter(i => i.description).map(i => ({
+        description: i.description, quantity: i.quantity, unit: i.unit,
+        unit_price: i.unit_price, total: i.quantity * i.unit_price,
+      })),
+      organization: {
+        name: org?.name || 'Mon Entreprise', phone: org?.phone,
+        email: org?.email, address: org?.address, rccm: org?.rccm,
+        devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
+        currency: org?.default_currency || 'XOF',
+      },
+    })
+    setPdfReady(true)
+  } catch { alert('Erreur lors de la génération du PDF.') }
+}
 
   const shareWhatsApp = async () => {
-    await saveQuote(false)
+    const ok = await saveQuote(false)
+  if (!ok) return
     const itemsList = items.filter(i => i.description)
       .map(i => `  • ${i.description} (${i.quantity} ${i.unit}) → ${formatAmount(i.quantity * i.unit_price, currency)}`)
       .join('\n')
