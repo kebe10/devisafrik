@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     // ── 1. Appel FedaPay sandbox ──
     const fedaRes = await fetch(
-      `https://sandbox-api.fedapay.com/v1/transactions/${transaction_id}`,
+      `https://api.fedapay.com/v1/transactions/${transaction_id}`,
       {
         method: 'GET',
         headers: {

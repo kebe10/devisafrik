@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
     }
 
-    const txRes = await fetch('https://sandbox-api.fedapay.com/v1/transactions', {
+    const txRes = await fetch('https://api.fedapay.com/v1/transactions', {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
