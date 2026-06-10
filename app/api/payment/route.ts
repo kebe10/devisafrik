@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('FedaPay key prefix:', process.env.FEDAPAY_SECRET_KEY?.substring(0, 15))
+    
     const { amount, period, org_id, email, name } = await req.json()
 
     if (!amount || !org_id || !email) {
@@ -25,8 +25,10 @@ export async function POST(req: NextRequest) {
         // URL de retour quand l'utilisateur annule
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/subscription?source=cancelled`,
         customer: {
-          email,
-          lastname: name || 'Client',
+        email,
+        firstname: name?.split(' ')[0] || 'Client',
+        lastname:  name?.split(' ').slice(1).join(' ') || name || 'Client',
+       },
         },
         metadata: { org_id, period },
       }),
