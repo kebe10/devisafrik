@@ -32,7 +32,7 @@ export default function NewQuotePage() {
   const [showCatalogue, setShowCatalogue] = useState(false)
   const [catalogue, setCatalogue]         = useState<any[]>([])
   const [catSearch, setCatSearch]         = useState('')
-  const [quotaExceeded, setQuotaExceeded] = useState(false) // ✅ modale quota
+  const [quotaExceeded, setQuotaExceeded] = useState(false)
 
   const [title, setTitle]               = useState('')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
@@ -132,9 +132,9 @@ export default function NewQuotePage() {
     setAiLoading(false)
   }
 
-  // ✅ saveQuote passe par /api/quotes pour que le quota soit vérifié côté serveur
+  // ✅ Retourne true = succès, false = échec (quota ou erreur)
   const saveQuote = async (redirect = true): Promise<boolean> => {
-  if (!orgId) return false
+    if (!orgId) return false
     setSaving(true)
     try {
       const res = await fetch('/api/quotes', {
@@ -161,61 +161,67 @@ export default function NewQuotePage() {
 
       const data = await res.json()
 
-      // ✅ Quota dépassé → modale Premium
       if (res.status === 403 && data.error === 'QUOTA_EXCEEDED') {
         setQuotaExceeded(true)
         setSaving(false)
-        return true 
+        return false
       }
 
       if (!res.ok) {
         alert(data.error || 'Erreur lors de la sauvegarde.')
         setSaving(false)
-        return true 
+        return false
       }
 
       setSaved(true)
+      setSaving(false)
       if (redirect) router.push('/quotes')
+      return true
 
     } catch {
       alert('Erreur réseau. Réessayez.')
+      setSaving(false)
+      return false
     }
-    setSaving(false)
   }
 
+  // ✅ Vérifie le quota AVANT de générer le PDF
   const handleGeneratePDF = async () => {
-  const ok = await saveQuote(false)
-  if (!ok) return
-  try {
-    const { generateQuotePDF } = await import('@/lib/pdf')
-    generateQuotePDF({
-      quote_number: quoteNumber, title: title || 'Devis', status,
-      tax_rate: taxRate, discount_amount: discount, subtotal,
-      tax_amount: taxAmount, total, payment_terms: paymentTerms,
-      validity_days: 30, notes, created_at: new Date().toISOString(),
-      client: selectedClient ? {
-        name: selectedClient.name, phone: selectedClient.phone,
-        whatsapp_number: selectedClient.whatsapp_number,
-        company_name: selectedClient.company_name,
-      } : undefined,
-      items: items.filter(i => i.description).map(i => ({
-        description: i.description, quantity: i.quantity, unit: i.unit,
-        unit_price: i.unit_price, total: i.quantity * i.unit_price,
-      })),
-      organization: {
-        name: org?.name || 'Mon Entreprise', phone: org?.phone,
-        email: org?.email, address: org?.address, rccm: org?.rccm,
-        devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
-        currency: org?.default_currency || 'XOF',
-      },
-    })
-    setPdfReady(true)
-  } catch { alert('Erreur lors de la génération du PDF.') }
-}
+    const ok = await saveQuote(false)
+    if (!ok) return
+    try {
+      const { generateQuotePDF } = await import('@/lib/pdf')
+      generateQuotePDF({
+        quote_number: quoteNumber, title: title || 'Devis', status,
+        tax_rate: taxRate, discount_amount: discount, subtotal,
+        tax_amount: taxAmount, total, payment_terms: paymentTerms,
+        validity_days: 30, notes, created_at: new Date().toISOString(),
+        client: selectedClient ? {
+          name: selectedClient.name, phone: selectedClient.phone,
+          whatsapp_number: selectedClient.whatsapp_number,
+          company_name: selectedClient.company_name,
+        } : undefined,
+        items: items.filter(i => i.description).map(i => ({
+          description: i.description, quantity: i.quantity, unit: i.unit,
+          unit_price: i.unit_price, total: i.quantity * i.unit_price,
+        })),
+        organization: {
+          name: org?.name || 'Mon Entreprise', phone: org?.phone,
+          email: org?.email, address: org?.address, rccm: org?.rccm,
+          devis_color: org?.devis_color, devis_footer: org?.devis_footer || undefined,
+          currency: org?.default_currency || 'XOF',
+        },
+      })
+      setPdfReady(true)
+    } catch {
+      alert('Erreur lors de la génération du PDF.')
+    }
+  }
 
+  // ✅ Vérifie le quota AVANT d'envoyer sur WhatsApp
   const shareWhatsApp = async () => {
     const ok = await saveQuote(false)
-  if (!ok) return
+    if (!ok) return
     const itemsList = items.filter(i => i.description)
       .map(i => `  • ${i.description} (${i.quantity} ${i.unit}) → ${formatAmount(i.quantity * i.unit_price, currency)}`)
       .join('\n')
@@ -254,11 +260,11 @@ export default function NewQuotePage() {
               style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
               💾
             </button>
-            <button onClick={shareWhatsApp}
+            <button onClick={shareWhatsApp} disabled={saving}
               style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#25D366', color: '#fff', cursor: 'pointer' }}>
               💬
             </button>
-            <button onClick={handleGeneratePDF}
+            <button onClick={handleGeneratePDF} disabled={saving}
               style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer' }}>
               📄 PDF
             </button>
@@ -346,14 +352,12 @@ export default function NewQuotePage() {
             <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Prestations / Produits</div>
 
-              {/* En-tête desktop */}
               <div className="items-header" style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 6 }}>
                 {['Description', 'Qté', 'Unité', 'Prix unit.', ''].map(h => (
                   <div key={h} style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{h}</div>
                 ))}
               </div>
 
-              {/* Lignes desktop */}
               <div className="items-desktop">
                 {items.map(item => (
                   <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 7, alignItems: 'center' }}>
@@ -369,7 +373,6 @@ export default function NewQuotePage() {
                 ))}
               </div>
 
-              {/* Lignes mobile */}
               <div className="items-mobile">
                 {items.map((item, idx) => (
                   <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)', boxSizing: 'border-box' }}>
@@ -435,7 +438,7 @@ export default function NewQuotePage() {
           </div>
           {/* ── FIN COLONNE GAUCHE ── */}
 
-          {/* ── COLONNE DROITE — Récapitulatif ── */}
+          {/* ── COLONNE DROITE ── */}
           <div className="recap-col" style={{ minWidth: 0 }}>
             <div style={{ background: '#fff', border: '2px solid var(--blue)', borderRadius: 16, padding: 16 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--blue)', marginBottom: 14 }}>Récapitulatif</div>
@@ -466,16 +469,16 @@ export default function NewQuotePage() {
               <div style={{ height: 1, background: 'var(--border)', margin: '14px 0' }} />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <button onClick={handleGeneratePDF}
-                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer' }}>
+                <button onClick={handleGeneratePDF} disabled={saving}
+                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                   📄 Télécharger le PDF
                 </button>
-                <button onClick={shareWhatsApp}
-                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#25D366', color: '#fff', cursor: 'pointer' }}>
+                <button onClick={shareWhatsApp} disabled={saving}
+                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#25D366', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
                   💬 Envoyer sur WhatsApp
                 </button>
                 <button onClick={() => saveQuote(true)} disabled={saving}
-                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, background: 'transparent', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: 'pointer' }}>
+                  style={{ width: '100%', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 600, background: 'transparent', color: 'var(--blue)', border: '1.5px solid var(--blue)', cursor: saving ? 'not-allowed' : 'pointer' }}>
                   {saving ? '⏳ Sauvegarde...' : '💾 Enregistrer et retour'}
                 </button>
               </div>
