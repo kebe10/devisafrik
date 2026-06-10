@@ -223,22 +223,13 @@ function SubscriptionContent() {
           </div>
         )}
 
-        {/* Toggle mensuel / annuel */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid var(--border)', borderRadius: 30, padding: '4px 12px' }}>
-            {(['month', 'year'] as const).map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                style={{ padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: period === p ? 'var(--orange)' : 'transparent', color: period === p ? '#fff' : 'var(--text-muted)', transition: 'all .2s' }}>
-                {p === 'month' ? 'Mensuel' : 'Annuel'}
-              </button>
-            ))}
-            <span style={{ background: '#ECFDF5', color: '#059669', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>-20% 🎁</span>
-          </div>
-          {period === 'year' && (
-            <div style={{ marginTop: 8, fontSize: 13, color: '#059669', fontWeight: 600 }}>
-              Économisez {formatAmount(saving, 'XOF')} par an !
-            </div>
-          )}
+        {/* Masquer l'annuel temporairement */}
+         <div style={{ textAlign: 'center', marginBottom: 28 }}>
+         <div style={{ display: 'inline-flex', background: '#fff', border: '1px solid var(--border)', borderRadius: 30, padding: '4px 12px' }}>
+         <button style={{ padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, border: 'none', background: 'var(--orange)', color: '#fff', fontFamily: 'inherit' }}>
+         Mensuel
+         </button>
+         </div>
         </div>
 
         {/* Plans */}
