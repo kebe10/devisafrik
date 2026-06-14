@@ -51,11 +51,7 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         {/* Logo */}
         <div style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, background: 'var(--orange)', borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 800, fontSize: 16,
-            }}>D</div>
+            <img src="/logo.png" alt="DevisAfrik" style={{ width: 36, height: 36, objectFit: 'contain' }} />
             <div>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>DevisAfrik</div>
               <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
@@ -116,11 +112,7 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, background: 'var(--orange)', borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 14,
-          }}>D</div>
+          <img src="/logo.png" alt="DevisAfrik" style={{ width: 32, height: 32, objectFit: 'contain' }} />
           <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>DevisAfrik</span>
         </div>
         <button onClick={() => setMenuOpen(!menuOpen)}
