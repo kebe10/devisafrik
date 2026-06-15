@@ -37,9 +37,8 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 36, height: 36, background: 'var(--orange)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 16 }}>D</div>
-            <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--blue)' }}>DevisAfrik</span>
-          </div>
+           <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 40, width: 'auto', objectFit: 'contain' }} />
+         </div>
 
           {/* Boutons desktop */}
           <div className="header-desktop-btns" style={{ display: 'flex', gap: 10 }}>
