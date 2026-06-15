@@ -49,17 +49,12 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         className="sidebar-desktop"
       >
         {/* Logo */}
-        <div style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-            <div>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>DevisAfrik</div>
-              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-                {org?.name || '...'}
-              </div>
-            </div>
+         <div style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+           <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
+            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+             {org?.name || '...'}
           </div>
-        </div>
+         </div>
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '10px' }}>
@@ -112,9 +107,8 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 32, height: 32, objectFit: 'contain' }} />
-          <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>DevisAfrik</span>
-        </div>
+          <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
+         </div>
         <button onClick={() => setMenuOpen(!menuOpen)}
           style={{
             background: 'rgba(255,255,255,0.1)', border: 'none',
