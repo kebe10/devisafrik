@@ -139,12 +139,11 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 120, height: 'auto', marginBottom: 12 }} />
-          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--blue)' }}>DevisAfrik</div>
+          <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 180, height: 'auto', marginBottom: 12 }} />
           <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-            Créez votre compte gratuit
-          </div>
+           Créez votre compte gratuit
         </div>
+       </div>
 
         {/* Card */}
         <div style={{

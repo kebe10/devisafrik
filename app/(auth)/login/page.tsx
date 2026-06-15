@@ -68,8 +68,7 @@ export default function LoginPage() {
       <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ width: 52, height: 52, background: 'var(--orange)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, marginBottom: 12 }}>D</div>
-            <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--blue)' }}>DevisAfrik</div>
+            <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 180, height: 'auto', marginBottom: 12 }} />
           </div>
 
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--shadow-sm)' }}>
@@ -133,8 +132,7 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: 420 }}>
 
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ width: 52, height: 52, background: 'var(--orange)', borderRadius: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 22, marginBottom: 12 }}>D</div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--blue)' }}>DevisAfrik</div>
+          <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 180, height: 'auto', marginBottom: 12 }} />
           <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>Connectez-vous à votre compte</div>
         </div>
 
