@@ -37,7 +37,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-           <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 48, width: 'auto', objectFit: 'contain' }} />
+           <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 50, width: 'auto', objectFit: 'contain' }} />
          </div>
 
           {/* Boutons desktop */}
