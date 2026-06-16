@@ -50,7 +50,9 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
       >
         {/* Logo */}
          <div style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-           <img src="/logo-new.png" alt="DevisAfrik" style={{ width: 160, height: 'auto', objectFit: 'contain' }} />
+           <div style={{ background: '#fff', borderRadius: 8, padding: '4px 8px', display: 'inline-flex' }}>
+            <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
+          </div>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
              {org?.name || '...'}
           </div>
