@@ -109,8 +109,10 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 32, width: 'auto', objectFit: 'contain' }} />
-         </div>
+          <div style={{ background: '#fff', borderRadius: 8, padding: '4px 8px', display: 'inline-flex' }}>
+            <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
+           </div>
+          </div>
         <button onClick={() => setMenuOpen(!menuOpen)}
           style={{
             background: 'rgba(255,255,255,0.1)', border: 'none',
