@@ -384,7 +384,7 @@ export default function LandingPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Liens rapides</div>
-              {[['Connexion', '/login'], ['Inscription gratuite', '/register'], ['Tarifs', '/subscription']].map(([label, path]) => (
+              {[['Connexion', '/login'], ['Inscription gratuite', '/register'], ['Tarifs', '/register']].map(([label, path]) => (
                 <span key={label} onClick={() => router.push(path)}
                   style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
