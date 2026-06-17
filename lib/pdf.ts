@@ -193,21 +193,44 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
   y += 8
 
   quote.items.forEach((item, idx) => {
-    const rowH = 8
-    if (idx % 2 === 0) { doc.setFillColor(248, 249, 252); doc.rect(margin, y, cW, rowH, 'F') }
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 50)
-    const desc = item.description.length > 40 ? item.description.substring(0, 37) + '...' : item.description
-    doc.text(desc, c.desc.x + 2, y + 5.5)
-    doc.text(String(item.quantity), c.qty.x + c.qty.w - 2, y + 5.5, { align: 'right' })
-    doc.text(item.unit, c.unit.x + 2, y + 5.5)
-    doc.text(fmt(item.unit_price, currency), c.price.x + c.price.w - 2, y + 5.5, { align: 'right' })
-    doc.text(fmt(item.total, currency), c.total.x + c.total.w - 2, y + 5.5, { align: 'right' })
-    doc.setDrawColor(220, 222, 230); doc.setLineWidth(0.2)
-    doc.line(margin, y + rowH, margin + cW, y + rowH)
-    y += rowH
-  })
+  const rowH = 8
+
+  // ✅ Nouvelle page si on dépasse la limite
+  if (y + rowH > pageH - 20) {
+    doc.addPage()
+    y = 14
+    // Redessiner l'en-tête du tableau sur la nouvelle page
+    doc.setFillColor(r, g, b)
+    doc.rect(margin, y, cW, 8, 'F')
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(255, 255, 255)
+    doc.text('DESCRIPTION', c.desc.x + 2, y + 5.5)
+    doc.text('QTÉ', c.qty.x + c.qty.w - 2, y + 5.5, { align: 'right' })
+    doc.text('UNITÉ', c.unit.x + 2, y + 5.5)
+    doc.text('PRIX UNIT.', c.price.x + c.price.w - 2, y + 5.5, { align: 'right' })
+    doc.text('TOTAL', c.total.x + c.total.w - 2, y + 5.5, { align: 'right' })
+    y += 8
+  }
+
+  if (idx % 2 === 0) { doc.setFillColor(248, 249, 252); doc.rect(margin, y, cW, rowH, 'F') }
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 50)
+  const desc = item.description.length > 40 ? item.description.substring(0, 37) + '...' : item.description
+  doc.text(desc, c.desc.x + 2, y + 5.5)
+  doc.text(String(item.quantity), c.qty.x + c.qty.w - 2, y + 5.5, { align: 'right' })
+  doc.text(item.unit, c.unit.x + 2, y + 5.5)
+  doc.text(fmt(item.unit_price, currency), c.price.x + c.price.w - 2, y + 5.5, { align: 'right' })
+  doc.text(fmt(item.total, currency), c.total.x + c.total.w - 2, y + 5.5, { align: 'right' })
+  doc.setDrawColor(220, 222, 230); doc.setLineWidth(0.2)
+  doc.line(margin, y + rowH, margin + cW, y + rowH)
+  y += rowH
+})
 
   y += 6
+
+  // ✅ Nouvelle page si pas assez de place pour les totaux
+  if (y + 60 > pageH - 20) {
+    doc.addPage()
+    y = 14
+  }
 
   // TOTAUX
   const tX = margin + 100; const tW = cW - 100
@@ -233,6 +256,8 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
 
   // CONDITIONS
   if (quote.payment_terms) {
+    // ✅ Nouvelle page si pas assez de place
+    if (y + 20 > pageH - 20) { doc.addPage(); y = 14 }
     doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(r, g, b)
     doc.text('CONDITIONS DE PAIEMENT', margin, y); y += 5
     doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 80)
@@ -241,6 +266,8 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
 
   // NOTES
 if (quote.notes) {
+  // ✅ Nouvelle page si pas assez de place
+    if (y + 20 > pageH - 20) { doc.addPage(); y = 14 }
   doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(r, g, b)
   doc.text('NOTES', margin, y); y += 5
   doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 80)
