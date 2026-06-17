@@ -269,3 +269,4 @@ doc.text(footer.substring(0, 80), pageW / 2, pageH - 9, { align: 'center' })
 doc.text('Généré avec DevisAfrik', pageW / 2, pageH - 4, { align: 'center' })
 
 doc.save(quote.quote_number + '.pdf')
+}
