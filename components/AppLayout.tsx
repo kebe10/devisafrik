@@ -110,7 +110,7 @@ export default function AppLayout({ children, org }: AppLayoutProps) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: '4px 8px', display: 'inline-flex' }}>
-            <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 30, width: 'auto', objectFit: 'contain' }} />
+            <img src="/logo-new.png" alt="DevisAfrik" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
            </div>
           </div>
         <button onClick={() => setMenuOpen(!menuOpen)}
