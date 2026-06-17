@@ -30,25 +30,62 @@ interface PDFQuote {
   };
 }
 
-// Charger une image depuis une URL et la convertir en base64
-async function loadImageAsBase64(url: string): Promise<{ data: string; format: string } | null> {
-  try {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = reader.result as string
-        const format = blob.type.includes('png') ? 'PNG' : 'JPEG'
-        const base64 = result.split(',')[1]
-        resolve({ data: base64, format })
+// ✅ Charge une image avec timeout et retry pour éviter le bug de logo manquant
+async function loadImageAsBase64(
+  url: string,
+  timeoutMs = 8000
+): Promise<{ data: string; format: string } | null> {
+  // Retry jusqu'à 3 fois
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+      const response = await fetch(url, {
+        signal: controller.signal,
+        cache: 'no-cache', // ✅ Force le rechargement sans cache
+      })
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        console.warn(`Logo fetch attempt ${attempt} failed: ${response.status}`)
+        continue
       }
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
+
+      const blob = await response.blob()
+      if (blob.size === 0) {
+        console.warn(`Logo blob vide attempt ${attempt}`)
+        continue
+      }
+
+      const result = await new Promise<{ data: string; format: string } | null>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const base64Result = reader.result as string
+          const format = blob.type.includes('png') ? 'PNG' : 'JPEG'
+          const base64 = base64Result.split(',')[1]
+          if (base64 && base64.length > 0) {
+            resolve({ data: base64, format })
+          } else {
+            resolve(null)
+          }
+        }
+        reader.onerror = () => resolve(null)
+        reader.readAsDataURL(blob)
+      })
+
+      if (result) return result
+
+    } catch (err) {
+      console.warn(`Logo load attempt ${attempt} error:`, err)
+      if (attempt < 3) {
+        // Attendre 500ms avant de réessayer
+        await new Promise(r => setTimeout(r, 500))
+      }
+    }
   }
+
+  return null
 }
 
 export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
@@ -68,20 +105,20 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
   doc.setFillColor(r, g, b)
   doc.rect(0, 0, pageW, 44, 'F')
 
-  // ✅ LOGO — si disponible, afficher le logo, sinon afficher le cercle "D"
+  // ✅ LOGO — chargement garanti avant génération PDF
   const logoUrl = quote.organization.logo_url
   let logoLoaded = false
 
   if (logoUrl) {
     const imgData = await loadImageAsBase64(logoUrl)
-    if (imgData) {
+    if (imgData && imgData.data) {
       try {
-        // Afficher le logo dans un carré blanc arrondi
         doc.setFillColor(255, 255, 255)
         doc.roundedRect(margin, 8, 28, 28, 2, 2, 'F')
         doc.addImage(imgData.data, imgData.format, margin + 1, 9, 26, 26)
         logoLoaded = true
-      } catch {
+      } catch (e) {
+        console.warn('Erreur addImage:', e)
         logoLoaded = false
       }
     }
