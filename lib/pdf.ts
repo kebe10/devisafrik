@@ -241,18 +241,34 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
 
   // NOTES
   if (quote.notes) {
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(r, g, b)
-    doc.text('NOTES', margin, y); y += 5
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 80)
-    const lines = doc.splitTextToSize(quote.notes, cW)
-    doc.text(lines, margin, y); y += lines.length * 5 + 5
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(r, g, b)
+  doc.text('NOTES', margin, y); y += 5
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 80)
+  const lines = doc.splitTextToSize(quote.notes, cW)
+
+  // ✅ Si les notes + signature + footer ne rentrent pas → nouvelle page
+  const spaceNeeded = lines.length * 5 + 5 + 30 + 16
+  if (y + spaceNeeded > pageH) {
+    doc.addPage()
+    y = 20
   }
 
-  // SIGNATURE
-  doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
-  doc.line(margin, pageH - 42, margin + 55, pageH - 42)
-  doc.setFontSize(7); doc.setTextColor(140, 140, 160)
-  doc.text('Signature & cachet client', margin, pageH - 37)
+  doc.text(lines, margin, y)
+  y += lines.length * 5 + 8
+}
+
+// ✅ S'assurer que la signature ne chevauche pas le footer
+if (y > pageH - 60) {
+  doc.addPage()
+  y = 20
+}
+
+// SIGNATURE
+doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
+doc.line(margin, pageH - 42, margin + 55, pageH - 42)
+doc.setFontSize(7); doc.setTextColor(140, 140, 160)
+doc.text('Signature & cachet client', margin, pageH - 37)
+
 
   // PIED DE PAGE
   doc.setFillColor(r, g, b)
