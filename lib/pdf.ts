@@ -248,17 +248,13 @@ if (quote.notes) {
   doc.text(lines, margin, y); y += lines.length * 5 + 5
 }
 
-// SIGNATURE — position dynamique basée sur y, minimum à pageH - 42
-const sigY = Math.max(y + 8, pageH - 42)
+// SIGNATURE — position dynamique, toujours affichée
+const sigY = Math.min(Math.max(y + 8, pageH - 42), pageH - 22)
 
-// ✅ Si signature dépasse le footer → pousser le footer vers le bas n'est pas possible
-// donc on s'assure juste que sigY ne dépasse pas pageH - 20
-if (sigY < pageH - 20) {
-  doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
-  doc.line(margin, sigY, margin + 55, sigY)
-  doc.setFontSize(7); doc.setTextColor(140, 140, 160)
-  doc.text('Signature & cachet client', margin, sigY + 5)
-}
+doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
+doc.line(margin, sigY, margin + 55, sigY)
+doc.setFontSize(7); doc.setTextColor(140, 140, 160)
+doc.text('Signature & cachet client', margin, sigY + 5)
 
 // PIED DE PAGE — toujours en bas, position fixe
 doc.setFillColor(r, g, b)
