@@ -240,43 +240,32 @@ export async function generateQuotePDF(quote: PDFQuote): Promise<void> {
   }
 
   // NOTES
-  if (quote.notes) {
+if (quote.notes) {
   doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(r, g, b)
   doc.text('NOTES', margin, y); y += 5
   doc.setFont('helvetica', 'normal'); doc.setTextColor(60, 60, 80)
   const lines = doc.splitTextToSize(quote.notes, cW)
-
-  // ✅ Si les notes + signature + footer ne rentrent pas → nouvelle page
-  const spaceNeeded = lines.length * 5 + 5 + 30 + 16
-  if (y + spaceNeeded > pageH) {
-    doc.addPage()
-    y = 20
-  }
-
-  doc.text(lines, margin, y)
-  y += lines.length * 5 + 8
+  doc.text(lines, margin, y); y += lines.length * 5 + 5
 }
 
-// ✅ S'assurer que la signature ne chevauche pas le footer
-if (y > pageH - 60) {
-  doc.addPage()
-  y = 20
+// SIGNATURE — position dynamique basée sur y, minimum à pageH - 42
+const sigY = Math.max(y + 8, pageH - 42)
+
+// ✅ Si signature dépasse le footer → pousser le footer vers le bas n'est pas possible
+// donc on s'assure juste que sigY ne dépasse pas pageH - 20
+if (sigY < pageH - 20) {
+  doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
+  doc.line(margin, sigY, margin + 55, sigY)
+  doc.setFontSize(7); doc.setTextColor(140, 140, 160)
+  doc.text('Signature & cachet client', margin, sigY + 5)
 }
 
-// SIGNATURE
-doc.setDrawColor(200, 200, 210); doc.setLineWidth(0.3)
-doc.line(margin, pageH - 42, margin + 55, pageH - 42)
-doc.setFontSize(7); doc.setTextColor(140, 140, 160)
-doc.text('Signature & cachet client', margin, pageH - 37)
+// PIED DE PAGE — toujours en bas, position fixe
+doc.setFillColor(r, g, b)
+doc.rect(0, pageH - 16, pageW, 16, 'F')
+doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(255, 255, 255)
+const footer = quote.organization.devis_footer || 'Merci de votre confiance — ' + quote.organization.name
+doc.text(footer.substring(0, 80), pageW / 2, pageH - 9, { align: 'center' })
+doc.text('Généré avec DevisAfrik', pageW / 2, pageH - 4, { align: 'center' })
 
-
-  // PIED DE PAGE
-  doc.setFillColor(r, g, b)
-  doc.rect(0, pageH - 16, pageW, 16, 'F')
-  doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(255, 255, 255)
-  const footer = quote.organization.devis_footer || 'Merci de votre confiance — ' + quote.organization.name
-  doc.text(footer.substring(0, 80), pageW / 2, pageH - 9, { align: 'center' })
-  doc.text('Généré avec DevisAfrik', pageW / 2, pageH - 4, { align: 'center' })
-
-  doc.save(quote.quote_number + '.pdf')
-}
+doc.save(quote.quote_number + '.pdf')
