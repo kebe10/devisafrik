@@ -72,6 +72,8 @@ export default function RegisterPage() {
 
       // Connexion réussie → rediriger vers dashboard
       router.push('/dashboard')
+      window.fbq?.('track', 'CompleteRegistration')
+      router.replace('/dashboard')
 
     } catch (err) {
       setError('Erreur réseau. Vérifiez votre connexion.')

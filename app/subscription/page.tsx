@@ -101,6 +101,7 @@ function SubscriptionContent() {
       }
 
       if (data.activated) {
+        window.fbq?.('track', 'Purchase', { value: 9500, currency: 'XOF' })
         setSuccessMsg('🎉 Plan Premium activé ! Devis illimités, IA avancée — tout est débloqué.')
         await loadData()
       } else {
