@@ -317,6 +317,18 @@ function SubscriptionContent() {
           </button>
         </div>
 
+        {/* Aide paiement WhatsApp */}
+        <div style={{ textAlign: 'center', marginTop: 16, padding: '14px', background: '#F0FFF4', borderRadius: 12, border: '1px solid #6EE7B7' }}>
+          <span style={{ fontSize: 13, color: '#065F46' }}>Problème de paiement ? </span>
+          
+            href="https://wa.me/2250777665671?text=Bonjour%2C%20j'ai%20un%20probl%C3%A8me%20avec%20mon%20paiement%20Premium%20DevisAfrik"
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#25D366', color: '#fff', padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: 'none', marginLeft: 8 }}>
+            💬 Contactez-nous
+          </a>
+        </div>
+
       </div>
     </AppLayout>
   )
