@@ -62,7 +62,7 @@ export default function LandingPage() {
               style={{ padding: '9px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
               Connexion
             </button>
-            <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') router.push('/register')}
+            <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') }}
               style={{ padding: '9px 16px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer' }}>
               Commencer gratuitement
             </button>
