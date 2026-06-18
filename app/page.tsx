@@ -4,6 +4,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+declare global {
+  interface Window { fbq: (...args: any[]) => void }
+}
+
 const WHATSAPP_NUMBER = '2250777665671'
 
 export default function LandingPage() {
@@ -58,7 +62,7 @@ export default function LandingPage() {
               style={{ padding: '9px 16px', borderRadius: 8, fontSize: 14, fontWeight: 600, background: 'transparent', color: 'var(--text-muted)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
               Connexion
             </button>
-            <button onClick={() => router.push('/register')}
+            <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') router.push('/register')}
               style={{ padding: '9px 16px', borderRadius: 8, fontSize: 14, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer' }}>
               Commencer gratuitement
             </button>
@@ -80,7 +84,7 @@ export default function LandingPage() {
               style={{ padding: '12px', borderRadius: 8, fontSize: 15, fontWeight: 600, background: 'transparent', color: 'var(--text)', border: '1.5px solid var(--border)', cursor: 'pointer', width: '100%' }}>
               Connexion
             </button>
-            <button onClick={() => { router.push('/register'); setMenuOpen(false) }}
+            <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register'); setMenuOpen(false) }}
               style={{ padding: '12px', borderRadius: 8, fontSize: 15, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer', width: '100%' }}>
               🚀 Commencer gratuitement
             </button>
@@ -102,7 +106,7 @@ export default function LandingPage() {
             Le seul logiciel de devis conçu pour les artisans, freelances et PME d'Afrique francophone. PDF professionnel + envoi WhatsApp en 1 clic.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-            <button onClick={() => router.push('/register')}
+            <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') }}
               style={{ padding: '15px 28px', borderRadius: 10, fontSize: 16, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer', minWidth: 240 }}>
               🚀 Commencer gratuitement
             </button>
@@ -297,7 +301,7 @@ export default function LandingPage() {
                   <span style={{ color: '#10B981' }}>✅</span> {f}
                 </div>
               ))}
-              <button onClick={() => router.push('/register')}
+              <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') }}
                 style={{ width: '100%', marginTop: 20, padding: '11px', borderRadius: 9, fontSize: 14, fontWeight: 700, background: 'transparent', color: 'var(--blue)', border: '2px solid var(--blue)', cursor: 'pointer' }}>
                 Commencer gratuitement
               </button>
@@ -356,7 +360,7 @@ export default function LandingPage() {
           Rejoignez des centaines d'entrepreneurs africains qui créent des devis professionnels avec DevisAfrik.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => router.push('/register')}
+          <button onClick={() => { window.fbq?.('track', 'Lead'); router.push('/register') }}
             style={{ padding: '16px 32px', borderRadius: 10, fontSize: 16, fontWeight: 700, background: 'var(--orange)', color: '#fff', cursor: 'pointer', minWidth: 260 }}>
             🚀 Créer mon compte gratuitement →
           </button>
