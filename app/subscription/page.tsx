@@ -336,9 +336,10 @@ function SubscriptionContent() {
         fontWeight: 700,
         textDecoration: 'none',
         marginLeft: 8,
-    }}>
-       💬 Contactez-nous
-       </a>
+    }}
+    >
+    💬 Contactez-nous
+  </a>
       </div>
 
       </div>
