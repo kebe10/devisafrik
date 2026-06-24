@@ -132,7 +132,6 @@ export default function NewQuotePage() {
     setAiLoading(false)
   }
 
-  // ✅ Retourne true = succès, false = échec (quota ou erreur)
   const saveQuote = async (redirect = true): Promise<boolean> => {
     if (!orgId) return false
     setSaving(true)
@@ -185,7 +184,6 @@ export default function NewQuotePage() {
     }
   }
 
-  // ✅ Vérifie le quota AVANT de générer le PDF
   const handleGeneratePDF = async () => {
     const ok = await saveQuote(false)
     if (!ok) return
@@ -218,7 +216,6 @@ export default function NewQuotePage() {
     }
   }
 
-  // ✅ Vérifie le quota AVANT d'envoyer sur WhatsApp
   const shareWhatsApp = async () => {
     const ok = await saveQuote(false)
     if (!ok) return
@@ -358,21 +355,41 @@ export default function NewQuotePage() {
                 ))}
               </div>
 
+              {/* Vue desktop */}
               <div className="items-desktop">
                 {items.map(item => (
                   <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2fr 65px 85px 100px 32px', gap: 6, marginBottom: 7, alignItems: 'center' }}>
-                    <input placeholder="Description..." value={item.description} onChange={e => updateItem(item.id, 'description', e.target.value)} />
-                    <input type="number" min="0" step="0.5" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'center' }} />
+                    <input
+                      placeholder="Description..."
+                      value={item.description}
+                      onChange={e => updateItem(item.id, 'description', e.target.value)}
+                    />
+                    {/* ✅ onFocus sélectionne tout — le 0 disparaît au clic */}
+                    <input
+                      type="number" min="0" step="0.5"
+                      value={item.quantity}
+                      onFocus={e => e.target.select()}
+                      onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                      style={{ textAlign: 'center' }}
+                    />
                     <select value={item.unit} onChange={e => updateItem(item.id, 'unit', e.target.value)}>
                       {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
-                    <input type="number" min="0" step="500" value={item.unit_price} onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right' }} />
+                    {/* ✅ onFocus sélectionne tout — le 0 disparaît au clic */}
+                    <input
+                      type="number" min="0" step="500"
+                      value={item.unit_price}
+                      onFocus={e => e.target.select()}
+                      onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                      style={{ textAlign: 'right' }}
+                    />
                     <button onClick={() => removeItem(item.id)}
                       style={{ background: '#FEF2F2', border: 'none', color: '#DC2626', borderRadius: 6, width: 30, height: 36, cursor: 'pointer', fontSize: 13 }}>✕</button>
                   </div>
                 ))}
               </div>
 
+              {/* Vue mobile */}
               <div className="items-mobile">
                 {items.map((item, idx) => (
                   <div key={item.id} style={{ background: '#F8F9FA', borderRadius: 10, padding: 12, marginBottom: 10, border: '1px solid var(--border)', boxSizing: 'border-box' }}>
@@ -388,7 +405,14 @@ export default function NewQuotePage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Quantité</label>
-                        <input type="number" min="0" step="0.5" value={item.quantity} onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
+                        {/* ✅ onFocus sélectionne tout */}
+                        <input
+                          type="number" min="0" step="0.5"
+                          value={item.quantity}
+                          onFocus={e => e.target.select()}
+                          onChange={e => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                          style={{ textAlign: 'center', width: '100%', boxSizing: 'border-box' }}
+                        />
                       </div>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Unité</label>
@@ -398,7 +422,14 @@ export default function NewQuotePage() {
                       </div>
                       <div>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Prix unit.</label>
-                        <input type="number" min="0" step="500" value={item.unit_price} onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)} style={{ textAlign: 'right', width: '100%', boxSizing: 'border-box' }} />
+                        {/* ✅ onFocus sélectionne tout */}
+                        <input
+                          type="number" min="0" step="500"
+                          value={item.unit_price}
+                          onFocus={e => e.target.select()}
+                          onChange={e => updateItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                          style={{ textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
+                        />
                       </div>
                     </div>
                     {item.description && (
@@ -450,7 +481,14 @@ export default function NewQuotePage() {
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                     <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>TVA (%)</span>
-                    <input type="number" min="0" max="30" value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} style={{ width: 52, padding: '4px 6px', fontSize: 12, textAlign: 'center' }} />
+                    {/* ✅ onFocus sélectionne tout */}
+                    <input
+                      type="number" min="0" max="30"
+                      value={taxRate}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setTaxRate(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                      style={{ width: 52, padding: '4px 6px', fontSize: 12, textAlign: 'center' }}
+                    />
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
                     {formatAmount(taxAmount, currency)}
@@ -458,7 +496,14 @@ export default function NewQuotePage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
                   <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Remise</span>
-                  <input type="number" min="0" value={discount} onChange={e => setDiscount(parseFloat(e.target.value) || 0)} style={{ width: 80, padding: '4px 8px', fontSize: 12, textAlign: 'right' }} />
+                  {/* ✅ onFocus sélectionne tout */}
+                  <input
+                    type="number" min="0"
+                    value={discount}
+                    onFocus={e => e.target.select()}
+                    onChange={e => setDiscount(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                    style={{ width: 80, padding: '4px 8px', fontSize: 12, textAlign: 'right' }}
+                  />
                 </div>
                 <div style={{ background: 'var(--blue)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
                   <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 4 }}>TOTAL TTC</div>
