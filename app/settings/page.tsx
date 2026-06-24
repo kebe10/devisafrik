@@ -44,14 +44,20 @@ export default function SettingsPage() {
 
     if (orgData) {
       setForm({
-        name: orgData.name || '', email: orgData.email || '', phone: orgData.phone || '',
-        whatsapp_number: orgData.whatsapp_number || '', address: orgData.address || '',
-        rccm: orgData.rccm || '', tax_number: orgData.tax_number || '',
-        default_tax_rate: orgData.default_tax_rate || 18,
+        name: orgData.name || '',
+        email: orgData.email || '',
+        phone: orgData.phone || '',
+        whatsapp_number: orgData.whatsapp_number || '',
+        address: orgData.address || '',
+        rccm: orgData.rccm || '',
+        tax_number: orgData.tax_number || '',
+        // ✅ Fix : null/undefined → 18, mais 0 reste 0
+        default_tax_rate: orgData.default_tax_rate != null ? orgData.default_tax_rate : 18,
         default_payment_terms: orgData.default_payment_terms || 'Paiement à la livraison',
         default_currency: orgData.default_currency || 'XOF',
         devis_color: orgData.devis_color || '#FF6B35',
-        devis_footer: orgData.devis_footer || '', logo_url: orgData.logo_url || '',
+        devis_footer: orgData.devis_footer || '',
+        logo_url: orgData.logo_url || '',
       })
       if (orgData.logo_url) setLogoPreview(orgData.logo_url)
     }
@@ -95,14 +101,21 @@ export default function SettingsPage() {
     if (!form.name.trim()) { alert("Le nom de l'entreprise est obligatoire."); return }
     setSaving(true)
 
+    const taxRate = parseFloat(String(form.default_tax_rate))
+
     const { error } = await supabase.from('organizations').update({
-      name: form.name.trim(), email: form.email.trim() || null,
-      phone: form.phone.trim() || null, whatsapp_number: form.whatsapp_number.trim() || null,
-      address: form.address.trim() || null, rccm: form.rccm.trim() || null,
+      name: form.name.trim(),
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      whatsapp_number: form.whatsapp_number.trim() || null,
+      address: form.address.trim() || null,
+      rccm: form.rccm.trim() || null,
       tax_number: form.tax_number.trim() || null,
-      default_tax_rate: Number(form.default_tax_rate) || 18,
+      // ✅ Fix : NaN → 0, mais 0 reste 0 (pas de fallback à 18)
+      default_tax_rate: isNaN(taxRate) ? 0 : taxRate,
       default_payment_terms: form.default_payment_terms.trim() || 'Paiement à la livraison',
-      default_currency: form.default_currency, devis_color: form.devis_color,
+      default_currency: form.default_currency,
+      devis_color: form.devis_color,
       devis_footer: form.devis_footer.trim() || null,
       logo_url: form.logo_url || null,
     }).eq('id', orgId)
@@ -125,7 +138,6 @@ export default function SettingsPage() {
 
   const lbl: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 5 }
 
-  // Bannière Premium réutilisable
   const PremiumBanner = () => (
     <div style={{ background: 'linear-gradient(135deg, #1E3A5F, #2D5A8E)', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
       <div>
@@ -148,7 +160,7 @@ export default function SettingsPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>Informations de votre entreprise</p>
         </div>
 
-        {/* ✅ Section Logo — bloquée pour plan gratuit */}
+        {/* Logo */}
         <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: 22, marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 18, color: 'var(--blue)' }}>
             🖼️ Logo de l'entreprise {!isPremium && <span style={{ fontSize: 11, background: 'var(--orange)', color: '#fff', padding: '2px 8px', borderRadius: 20, marginLeft: 8 }}>Premium</span>}
@@ -211,7 +223,17 @@ export default function SettingsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <div>
               <label style={lbl}>TVA par défaut (%)</label>
-              <input type="number" min="0" max="30" value={form.default_tax_rate} onChange={e => setForm(f => ({ ...f, default_tax_rate: parseFloat(e.target.value) || 0 }))} />
+              <input
+                type="number"
+                min="0"
+                max="30"
+                value={form.default_tax_rate}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  // ✅ Fix : permettre 0 sans fallback à 18
+                  default_tax_rate: e.target.value === '' ? 0 : parseFloat(e.target.value),
+                }))}
+              />
             </div>
             <div>
               <label style={lbl}>Devise par défaut</label>

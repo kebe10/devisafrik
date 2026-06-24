@@ -80,7 +80,7 @@ export default function NewQuotePage() {
     setCatalogue(servicesData || [])
 
     if (orgData) {
-      setTaxRate(orgData.default_tax_rate || 18)
+      setTaxRate(orgData.default_tax_rate != null ? orgData.default_tax_rate : 18)
       setPaymentTerms(orgData.default_payment_terms || 'Paiement à la livraison')
     }
     setLoading(false)
