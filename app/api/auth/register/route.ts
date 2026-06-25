@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // 1. Créer le compte avec signUp (pas admin.createUser)
+    // 1. Créer le compte
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -85,12 +85,16 @@ export async function POST(req: NextRequest) {
 
     if (memberError) throw memberError
 
-    // 4. Services de base dans le catalogue
-    await supabase.from('service_catalog').insert([
-      { organization_id: org.id, name: "Main d'oeuvre",  default_price: 15000, default_unit: 'heure',   category: 'Service'  },
-      { organization_id: org.id, name: 'Déplacement',    default_price: 5000,  default_unit: 'forfait', category: 'Service'  },
-      { organization_id: org.id, name: 'Fournitures',    default_price: 10000, default_unit: 'forfait', category: 'Matériel' },
-    ])
+    // 4. Services de base — erreur non bloquante
+    try {
+      await supabase.from('service_catalog').insert([
+        { organization_id: org.id, name: "Main d'oeuvre", default_price: 15000, default_unit: 'heure',   category: 'Service'  },
+        { organization_id: org.id, name: 'Déplacement',   default_price: 5000,  default_unit: 'forfait', category: 'Service'  },
+        { organization_id: org.id, name: 'Fournitures',   default_price: 10000, default_unit: 'forfait', category: 'Matériel' },
+      ])
+    } catch (e) {
+      console.warn('Catalogue non créé:', e)
+    }
 
     return NextResponse.json(
       { success: true, message: 'Compte créé avec succès', org_id: org.id },
