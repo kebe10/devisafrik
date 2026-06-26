@@ -1,19 +1,31 @@
 // lib/supabase.ts
-// Client Supabase centralisé — DevisAfrik MVP
-// Version simplifiée — compatible Client Components
-
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// ── Client navigateur (à utiliser dans tous les 'use client') ──
-export const supabase = createClient(supabaseUrl, supabaseAnon)
+// ── Client navigateur avec persistance de session correcte ──
+export const supabase = createClient(supabaseUrl, supabaseAnon, {
+  auth: {
+    persistSession:    true,
+    autoRefreshToken:  true,
+    detectSessionInUrl: true,
+    storageKey:        'devisafrik-auth',
+    storage:           typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+})
 
-// Alias pour compatibilité
-export const createBrowserClient = () => createClient(supabaseUrl, supabaseAnon)
+export const createBrowserClient = () => createClient(supabaseUrl, supabaseAnon, {
+  auth: {
+    persistSession:    true,
+    autoRefreshToken:  true,
+    detectSessionInUrl: true,
+    storageKey:        'devisafrik-auth',
+    storage:           typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+})
 
-// ── Client admin (API Routes uniquement) ───────────────────────
+// ── Client admin (API Routes uniquement) ──
 export const createAdminClient = () =>
   createClient(
     supabaseUrl,
@@ -101,7 +113,7 @@ export interface DashboardStats {
   month_quotes:    number
 }
 
-// ── Helpers ─────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────
 export const formatCFA = (amount: number): string =>
   new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' FCFA'
 
@@ -116,8 +128,6 @@ export const formatAmount = (amount: number, currency: string = 'XOF'): string =
   }
   const symbol = symbols[currency] || currency
   const formatted = new Intl.NumberFormat('fr-FR').format(Math.round(amount))
-  
-  // Symbole avant ou après selon la devise
   if (['EUR', 'USD', 'GHS', 'NGN'].includes(currency)) {
     return `${symbol} ${formatted}`
   }
@@ -130,4 +140,5 @@ export const QUOTE_STATUSES = {
   accepted: { label: 'Accepté',   color: '#059669', bg: '#ECFDF5' },
   paid:     { label: 'Payé',      color: '#065F46', bg: '#D1FAE5' },
   rejected: { label: 'Refusé',    color: '#DC2626', bg: '#FEF2F2' },
+  cancelled: { label: 'Annulé',   color: '#DC2626', bg: '#FEF2F2' },
 }
