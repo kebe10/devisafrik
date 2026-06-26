@@ -89,58 +89,86 @@ export default function DashboardPage() {
   const [period, setPeriod]       = useState(6)
 
   const loadData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+  try {
+    setLoading(true)
 
-      const { data: member } = await supabase
+    // ✅ Attendre que la session soit bien établie
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+
+    const { data: member } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .single()
+
+    // ✅ Si pas de member, retry après 1 seconde (nouveau compte)
+    if (!member) {
+      await new Promise(r => setTimeout(r, 1000))
+      const { data: memberRetry } = await supabase
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
         .single()
 
-      if (!member) { router.push('/login'); return }
+      if (!memberRetry) { router.push('/login'); return }
 
+      // Continuer avec memberRetry
       const { data: orgData } = await supabase
         .from('organizations')
         .select('*')
-        .eq('id', member.organization_id)
+        .eq('id', memberRetry.organization_id)
         .single()
 
       setOrg(orgData)
-
-      const { data: quotesAll } = await supabase
-        .from('quotes')
-        .select('id, status, total, created_at, client:clients(name)')
-        .eq('organization_id', member.organization_id)
-        .order('created_at', { ascending: false })
-
-      const all = quotesAll || []
-      setAllQuotes(all)
-      setStats({
-        total:    all.length,
-        revenue:  all.filter(q => q.status === 'paid').reduce((s, q) => s + (q.total || 0), 0),
-        sent:     all.filter(q => q.status === 'sent').length,
-        pending:  all.filter(q => ['sent', 'accepted'].includes(q.status)).length,
-        accepted: all.filter(q => q.status === 'accepted').length,
-        paid:     all.filter(q => q.status === 'paid').length,
-      })
-
-      const { data: quotesData } = await supabase
-        .from('quotes')
-        .select('*, client:clients(name, phone)')
-        .eq('organization_id', member.organization_id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      setQuotes(quotesData || [])
-    } catch (err) {
-      console.error('Erreur dashboard:', err)
-    } finally {
+      setAllQuotes([])
+      setQuotes([])
       setLoading(false)
+      return
     }
-  }, [router])
+
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', member.organization_id)
+      .single()
+
+    setOrg(orgData)
+
+    const { data: quotesAll } = await supabase
+      .from('quotes')
+      .select('id, status, total, created_at, client:clients(name)')
+      .eq('organization_id', member.organization_id)
+      .order('created_at', { ascending: false })
+
+    const all = quotesAll || []
+    setAllQuotes(all)
+    setStats({
+      total:    all.length,
+      revenue:  all.filter(q => q.status === 'paid').reduce((s, q) => s + (q.total || 0), 0),
+      sent:     all.filter(q => q.status === 'sent').length,
+      pending:  all.filter(q => ['sent', 'accepted'].includes(q.status)).length,
+      accepted: all.filter(q => q.status === 'accepted').length,
+      paid:     all.filter(q => q.status === 'paid').length,
+    })
+
+    const { data: quotesData } = await supabase
+      .from('quotes')
+      .select('*, client:clients(name, phone)')
+      .eq('organization_id', member.organization_id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    setQuotes(quotesData || [])
+  } catch (err) {
+    console.error('Erreur dashboard:', err)
+  } finally {
+    setLoading(false)
+  }
+}, [router])
 
   useEffect(() => { loadData() }, [loadData])
 
